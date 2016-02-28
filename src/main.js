@@ -22,10 +22,12 @@ const isString = v => typeof v === 'string'
  * Create a new TinierDOM element.
  * @param {String} tagName
  * @param {Object} attributes = {}
- * @param {Object[]|Object|String|null} children = null
+ * @param {Object[]|Object|String} ...childrenAr - A single binding or a mix of
+ * elements and strings.
  * @return {Object} A TinierDOM element.
  */
-export function h (tagName, attributes = {}, children = null) {
+export function h (tagName, attributes = {}, ...childrenAr) {
+  const children = isTinierBinding(childrenAr[0]) ? childrenAr[0] : childrenAr
   return tagType({ tagName, attributes, children }, ELEMENT)
 }
 
@@ -59,21 +61,16 @@ function updateDOMElement (el, tinierEl) {
 
 /**
  * Deal with possible children values.
- * @param {Object[]|Object|String|null} children = null
+ * @param {Object[]|Object|String} children
  * @return {Object[]} An array of children to render.
  */
 function renderChildren (el, children) {
-  if (children === null) {
-    return null
-  } else if (isString(children)) {
-    el.textContent = children
-    return null
-  } else if (isTinierBinding(children)) {
+if (isTinierBinding(children)) {
     return set({}, children.address, el)
   } else if (isArray(children)) {
     return render(el, ...children)
   } else { // Tinier element
-    return render(el, children)
+    throw Error('Unrecognized type for children')
   }
 }
 
@@ -81,8 +78,8 @@ function renderChildren (el, children) {
  * Render the given element tree into the container.
  * @param {Element} container - A DOM element that will be the container for
  * the renedered element tree.
- * @param {...Objects} tinierElements - Any number of TinierDOM elements that
- * will be rendered.
+ * @param {...Object|String} tinierElements - Any number of TinierDOM elements
+ * or strings that will be rendered.
  * @return {Object} A nested data structure of bindings for use in Tinier.
  */
 export function render (container, ...tinierElements) {
@@ -90,8 +87,8 @@ export function render (container, ...tinierElements) {
   if (!isElement(container))
     throw Error('First argument must be a DOM Element.')
   tinierElements.map(e => {
-    if (!isTinierElement(e))
-      throw Error('All arguments except the first must be TinierDOM elements.')
+    if (!isTinierElement(e) && !isString(e))
+      throw Error('All arguments except the first must be TinierDOM elements or strings.')
   })
 
   // get the children with IDs
@@ -115,29 +112,42 @@ export function render (container, ...tinierElements) {
         return renderChildren(movedEl, tinierEl.children)
       } else if (el) {
         // both defined, check type and id
-        if (el.tagName === tinierEl.tagName) {
+        if (el.tagName && el.tagName === tinierEl.tagName) {
           // matching tag, then update the node to match. Be aware that existing
           // nodes with IDs might get moved, so we should clone them?
           const elToUpdate = el.id ? el.cloneNode(true) : el
           updateDOMElement(elToUpdate, tinierEl)
           if (el.id) container.replaceChild(elToUpdate, el)
           return renderChildren(elToUpdate, tinierEl.children)
-        } else {
+        } else if (isTinierElement(tinierEl)) {
           // not a matching tag, then replace the element with a new one
           const newEl = createDOMElement(tinierEl)
           container.replaceChild(newEl, el)
           return renderChildren(newEl, tinierEl.children)
+        } else if (isString(tinierEl)) {
+          // text
+          container.appendChild(document.createTextNode(tinierEl))
+          return null
         }
       } else {
-        // no el and no ID match, then add a new Element
-        const newEl = createDOMElement(tinierEl)
-        container.appendChild(newEl)
-        return renderChildren(newEl, tinierEl.children)
+        // no el and no ID match, then add a new Element or string node
+        if (isTinierElement(tinierEl)) {
+          // tinier element
+          const newEl = createDOMElement(tinierEl)
+          container.appendChild(newEl)
+          return renderChildren(newEl, tinierEl.children)
+        } else {
+          // text
+          container.appendChild(document.createTextNode(tinierEl))
+          return null
+        }
       }
     } else {
       // no tinierEl, then remove the el, if it exists
       if (el) container.removeChild(el)
+      return null
     }
+    // just in case
     return null
   })
 

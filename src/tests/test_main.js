@@ -18,7 +18,7 @@ describe('h', () => {
   it('returns an object', () => {
     assert.deepEqual(
       h('div'),
-      { tagName: 'div', attributes: {}, children: null, type: ELEMENT }
+      { tagName: 'div', attributes: {}, children: [], type: ELEMENT }
     )
   })
 })
@@ -38,18 +38,22 @@ describe('render', () => {
     assert.strictEqual(newEl.textContent, '')
   })
 
-  it('renders text', () => {
-    render(el, <div>hello world</div>)
-    const newEl = el.firstChild
-    assert.strictEqual(newEl.textContent, 'hello world')
+  it('renders text with elements', () => {
+    render(el, <div><span>hello</span> world</div>)
+    const newEl = el.firstChild.firstChild
+    const newEl2 = el.firstChild.lastChild
+    assert.strictEqual(newEl.textContent, 'hello')
+    assert.strictEqual(newEl2.textContent, ' world')
   })
 
   it('renders multiple divs', () => {
-    render(el, <div>hello</div>, <div>world</div>)
+    render(el, <div>hello</div>, <div><span>world</span><span>!</span></div>)
     const newEl = el.firstChild
-    const newEl2 = el.lastChild
+    const newEl2 = el.lastChild.firstChild
+    const newEl3 = el.lastChild.lastChild
     assert.strictEqual(newEl.textContent, 'hello')
     assert.strictEqual(newEl2.textContent, 'world')
+    assert.strictEqual(newEl3.textContent, '!')
   })
 
   it('renders nested elements with attributes', () => {
