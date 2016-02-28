@@ -2,64 +2,66 @@
 
 'use strict'
 
-import { h, maybeSelect, render, D3Element, } from '../main'
-import d3 from 'd3'
+import { h, render, binding, ELEMENT, BINDING, } from '../main'
 
-import { describe, it } from 'mocha'
+import { describe, it, afterEach, } from 'mocha'
 import { assert } from 'chai'
 
 import jsdom from 'jsdom'
 const document = jsdom.jsdom()
 const window = document.defaultView
+const el = document.body
 global.Element = window.Element
+global.document = document
 
 describe('h', () => {
   it('returns an object', () => {
     assert.deepEqual(
       h('div'),
-      { tagName: 'div', attributes: {}, children: null, type: D3Element }
+      { tagName: 'div', attributes: {}, children: null, type: ELEMENT }
     )
-  })
-})
-
-describe('maybeSelect', () => {
-  it('select Elements', () => {
-    const body = document.body
-    assert.equal(maybeSelect(body).node(), body)
-  })
-  it('returns d3 selections', () => {
-    const sel = d3.select(document)
-    assert.equal(maybeSelect(sel), sel)
   })
 })
 
 describe('render', () => {
+  afterEach(() => {
+    // clear DOM
+    while (el.firstChild) {
+      el.removeChild(el.firstChild)
+    }
+  })
+
   it('renders empty element', () => {
-    const sel = d3.select(document.body).append('div')
-    render(sel, <div id="new"></div>)
-    assert.isFalse(sel.select('#new').empty())
-    assert.equal(sel.select('#new').text(), '')
+    render(el, <div id="new"></div>)
+    const newEl = el.firstChild
+    assert.strictEqual(newEl.id, 'new')
+    assert.strictEqual(newEl.textContent, '')
   })
 
   it('renders text', () => {
-    const sel = d3.select(document.body).append('div')
-    render(sel, <div>hello world</div>)
-    assert.equal(sel.select('div').text(), 'hello world')
+    render(el, <div>hello world</div>)
+    const newEl = el.firstChild
+    assert.strictEqual(newEl.textContent, 'hello world')
+  })
+
+  it('renders multiple divs', () => {
+    render(el, <div>hello</div>, <div>world</div>)
+    const newEl = el.firstChild
+    const newEl2 = el.lastChild
+    assert.strictEqual(newEl.textContent, 'hello')
+    assert.strictEqual(newEl2.textContent, 'world')
   })
 
   it('renders nested elements with attributes', () => {
-    const sel = d3.select(document.body).append('div')
-    render(sel, <div><a href="goo.gl">goog</a></div>)
-    assert.equal(sel.select('div').select('a').attr('href'), 'goo.gl')
-    assert.equal(sel.select('div').select('a').text(), 'goog')
+    render(el, <div><a href="goo.gl">goog</a></div>)
+    const newEl = el.firstChild.firstChild
+    assert.strictEqual(newEl.getAttribute('href'), 'goo.gl')
+    assert.strictEqual(newEl.textContent, 'goog')
   })
 
   it('returns a bindings object', () =>{
-    const sel = d3.select(document.body).append('div')
-    const b = render(
-      sel,
-        <div><a href="goo.gl">{ binding(['a', 'b']) }</a></div>
-    )
-    assert.deepEqual(b, { a: { b: sel }})
+    const b = render(el, <div><a href="goo.gl">{ binding(['a', 'b']) }</a></div>)
+    const newEl = el.firstChild.firstChild
+    assert.deepEqual(b, { a: { b: newEl }})
   })
 })

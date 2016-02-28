@@ -1,93 +1,146 @@
 'use strict'
 
-import d3 from 'd3'
-import { curry, get, merge, set, } from 'lodash'
+import { zipWith, partial, get, set, merge, filter, keyBy, mapValues, } from 'lodash'
 
-export const D3Binding = '@D3Binding'
-export const D3Element = '@D3Element'
+export const BINDING = '@TINIER_BINDING'
+export const ELEMENT = '@TINIER_ELEMENT'
+
+function tagType (obj, type) {
+  return Object.assign({}, obj, { type })
+}
 
 // TODO share a dependency with tinier
 // Make sure default is null so undefined type constant do not match
-const checkType = curry((type, obj) => get(obj, 'type', null) === type)
+const checkType = (type, obj) => get(obj, 'type', null) === type
+const isTinierBinding = partial(checkType, BINDING)
+const isTinierElement = partial(checkType, ELEMENT)
+const isElement = v => v instanceof Element
 const isArray = Array.isArray
 const isString = v => typeof v === 'string'
-const isD3Binding = checkType(D3Binding)
-const isD3Element = checkType(D3Element)
 
 /**
+ * Create a new TinierDOM element.
  * @param {String} tagName
  * @param {Object} attributes = {}
- * @param {D3Element[]|D3Element|D3Binding|String|null} children = null
- * @return {D3Element}
+ * @param {Object[]|Object|String|null} children = null
+ * @return {Object} A TinierDOM element.
  */
 export function h (tagName, attributes = {}, children = null) {
-  return { tagName, attributes, children, type: D3Element }
+  return tagType({ tagName, attributes, children }, ELEMENT)
 }
 
 /**
- * Update a selection or create a new element with the given attributes.
- * @param {Selection} parentSel
- * @param {String} tagName
- * @param {Object} attributes
- * @return {Selection} D3 selection of the new or updated element.
+ * Create a new TinierDOM binding.
+ * @param {Array} address - An address array.
+ * @return {Object} A TinierDOM binding.
  */
-function appendOrUpdate (parentSel, tagName, attributes) {
-  debugger
-  let sel = parentSel.select(tagName)
-  if (sel.empty())
-    sel = parentSel.append(tagName)
-  for (let key in attributes)
-    sel.attr(key, attributes[key])
-  return sel
+export function binding (address) {
+  return tagType({ address }, BINDING)
+}
+
+function createDOMElement (tinierEl) {
+  return updateDOMElement(document.createElement(tinierEl.tagName), tinierEl)
+}
+
+function updateDOMElement (el, tinierEl) {
+  mapValues(tinierEl.attributes, (v, k) => {
+    if (k === 'id') {
+      el.id = v
+    } else if (k === 'style' && !isString(v)) {
+      mapValues(v, (sv, sk) => {
+        el.style.setProperty(sk, sv)
+      })
+    } else {
+      el.setAttribute(k, v)
+    }
+  })
+  return el
 }
 
 /**
- * Get a D3 selection if not already given.
- * @param {Element|D3 Selection} container
- * @return {D3 Selection}
+ * Deal with possible children values.
+ * @param {Object[]|Object|String|null} children = null
+ * @return {Object[]} An array of children to render.
  */
-export function maybeSelect (obj) {
-  return obj instanceof Element ? d3.select(obj) : obj
-}
-
-/**
- * Render the given element tree into the container.
- * @param {Element|D3 Selection} container
- * @param {D3Element} d3Element
- * @return {Object} A nested data structure of bindings for use in tinier.
- */
-export function render (container, d3Element) {
-  if (!isD3Element(d3Element))
-    throw Error('Second argument must be a D3Element')
-  const sel = appendOrUpdate(maybeSelect(container),
-                             d3Element.tagName,
-                             d3Element.attributes)
-  const childObj = d3Element.children
-  // deal with children
-  if (isArray(childObj)) {
-    return childObj.reduce((bindings, child) => {
-      if (!isD3Element(child))
-        throw Error('Every element of a child array must be a D3Element')
-      return merge(bindings, render(sel, child))
-    }, {})
-  } else if (isD3Element(childObj)) {
-    return render(sel, childObj)
-  } else if (isD3Binding(childObj)) {
-    return set({}, childObj.address, sel.node())
-  } else if (isString(childObj)) {
-    sel.text(childObj)
-    return {}
-  } else if (childObj === null) {
-    return {}
-  } else {
-    throw Error('Unrecognized content in D3Element: ' + d3Element.children)
+function renderChildren (el, children) {
+  if (children === null) {
+    return null
+  } else if (isString(children)) {
+    el.textContent = children
+    return null
+  } else if (isTinierBinding(children)) {
+    return set({}, children.address, el)
+  } else if (isArray(children)) {
+    return render(el, ...children)
+  } else { // Tinier element
+    return render(el, children)
   }
 }
 
 /**
- * @param {Array} address
- * @return {D3Binding}
+ * Render the given element tree into the container.
+ * @param {Element} container - A DOM element that will be the container for
+ * the renedered element tree.
+ * @param {...Objects} tinierElements - Any number of TinierDOM elements that
+ * will be rendered.
+ * @return {Object} A nested data structure of bindings for use in Tinier.
  */
-export function binding (address) {
-  return { type: D3Binding, address }
+export function render (container, ...tinierElements) {
+  // check arguments
+  if (!isElement(container))
+    throw Error('First argument must be a DOM Element.')
+  tinierElements.map(e => {
+    if (!isTinierElement(e))
+      throw Error('All arguments except the first must be TinierDOM elements.')
+  })
+
+  // get the children with IDs
+  const childrenWithKeys = filter(container.children, c => c.id)
+  const elementsByID = keyBy(childrenWithKeys, c => c.id)
+
+  const bindings = zipWith(Array.from(container.children), tinierElements, (el, tinierEl) => {
+    if (tinierEl) {
+      // tinierEl and el exist, then check for a matching node by ID
+      if (tinierEl.id && tinierEl.id in elementsByID) {
+        // matching ID element
+        const movedEl = elementsByID[el.id]
+        if (el) {
+          // if match and existing el, then replace the element
+          container.replaceChild(el, movedEl)
+        } else {
+          // if match and el is undefined, then append the element
+          container.appendChild(movedEl)
+        }
+        // then render children
+        return renderChildren(movedEl, tinierEl.children)
+      } else if (el) {
+        // both defined, check type and id
+        if (el.tagName === tinierEl.tagName) {
+          // matching tag, then update the node to match. Be aware that existing
+          // nodes with IDs might get moved, so we should clone them?
+          const elToUpdate = el.id ? el.cloneNode(true) : el
+          updateDOMElement(elToUpdate, tinierEl)
+          if (el.id) container.replaceChild(el, elToUpdate)
+          return renderChildren(elToUpdate, tinierEl.children)
+        } else {
+          // not a matching tag, then replace the element with a new one
+          const newEl = createDOMElement(tinierEl)
+          container.replaceChild(el, newEl)
+          return renderChildren(newEl, tinierEl.children)
+        }
+      } else {
+        // no el and no ID match, then add a new Element
+        const newEl = createDOMElement(tinierEl)
+        container.appendChild(newEl)
+        return renderChildren(newEl, tinierEl.children)
+      }
+    } else {
+      // no tinierEl, then remove the el, if it exists
+      if (el) container.removeChild(el)
+    }
+    return null
+  })
+
+  // merge the bindings
+  return merge({}, ...bindings)
 }
