@@ -106,7 +106,7 @@ export function render (container, ...tinierElements) {
         const movedEl = elementsByID[el.id]
         if (el) {
           // if match and existing el, then replace the element
-          container.replaceChild(el, movedEl)
+          container.replaceChild(movedEl, el)
         } else {
           // if match and el is undefined, then append the element
           container.appendChild(movedEl)
@@ -120,12 +120,12 @@ export function render (container, ...tinierElements) {
           // nodes with IDs might get moved, so we should clone them?
           const elToUpdate = el.id ? el.cloneNode(true) : el
           updateDOMElement(elToUpdate, tinierEl)
-          if (el.id) container.replaceChild(el, elToUpdate)
+          if (el.id) container.replaceChild(elToUpdate, el)
           return renderChildren(elToUpdate, tinierEl.children)
         } else {
           // not a matching tag, then replace the element with a new one
           const newEl = createDOMElement(tinierEl)
-          container.replaceChild(el, newEl)
+          container.replaceChild(newEl, el)
           return renderChildren(newEl, tinierEl.children)
         }
       } else {
