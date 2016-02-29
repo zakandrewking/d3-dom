@@ -41,12 +41,13 @@ export function addressToObj (address, val) {
 function mergeBindingsArray (bindings) {
   return bindings.reduce((acc, binding) => {
     if (!isArray(binding))
-      throw Error('Incompatible bindings: mix of arrays and objects')
+      throw Error('Incompatible bindings: mix of types')
     for (let i = 0, l = binding.length; i < l; i++) {
       if (binding[i]) {
         if (acc[i])
-          throw Error('Incompatible bindings. Binding already exists with index ' + i)
-        acc[i] = binding[i]
+          acc[i] = mergeBindings([ binding[i], acc[i] ])
+        else
+          acc[i] = binding[i]
       }
     }
     return acc
@@ -56,12 +57,13 @@ function mergeBindingsArray (bindings) {
 function mergeBindingsObject (bindings) {
   return bindings.reduce((acc, binding) => {
     if (isArray(binding))
-      throw Error('Incompatible bindings: mix of arrays and objects')
+      throw Error('Incompatible bindings: mix of types')
     for (let k in binding) {
       if (binding[k]) {
         if (acc[k])
-          throw Error('Incompatible bindings. Binding already exists with key ' + k)
-        acc[k] = binding[k]
+          acc[k] = mergeBindings([ binding[k], acc[k] ])
+        else
+          acc[k] = binding[k]
       }
     }
     return acc
