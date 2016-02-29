@@ -1,6 +1,15 @@
+/** @module tinier-dom */
+
 'use strict'
 
-import { zipWith, partial, get, set, merge, filter, keyBy, mapValues, } from 'lodash'
+import set from 'lodash.set'
+import merge from 'lodash.merge'
+import keyBy from 'lodash.keyBy'
+import mapValues from 'lodash.mapValues'
+
+function partial (fn, arg) {
+  return (...args) => fn(arg, ...args)
+}
 
 export const BINDING = '@TINIER_BINDING'
 export const ELEMENT = '@TINIER_ELEMENT'
@@ -11,7 +20,7 @@ function tagType (obj, type) {
 
 // TODO share a dependency with tinier
 // Make sure default is null so undefined type constant do not match
-const checkType = (type, obj) => get(obj, 'type', null) === type
+const checkType = (type, obj) => obj && obj.type && obj.type === type
 const isTinierBinding = partial(checkType, BINDING)
 const isTinierElement = partial(checkType, ELEMENT)
 const isElement = v => v instanceof Element
@@ -21,12 +30,15 @@ const isString = v => typeof v === 'string'
 /**
  * Create a new TinierDOM element.
  * @param {String} tagName
- * @param {Object} attributes = {}
+ * @param {Object|null} attributes = {} - The attributes. Note that JSX will
+ * pass null in when there are no attributes. In the resulting object, this will
+ * be an empty object {}.
  * @param {Object[]|Object|String} ...childrenAr - A single binding or a mix of
  * elements and strings.
  * @return {Object} A TinierDOM element.
  */
 export function h (tagName, attributes = {}, ...childrenAr) {
+  if (!attributes) attributes = {}
   const children = isTinierBinding(childrenAr[0]) ? childrenAr[0] : childrenAr
   return tagType({ tagName, attributes, children }, ELEMENT)
 }
@@ -44,7 +56,25 @@ function createDOMElement (tinierEl) {
   return updateDOMElement(document.createElement(tinierEl.tagName), tinierEl)
 }
 
-function updateDOMElement (el, tinierEl) {
+export function getStyles (cssText) {
+  const reg = /([^:; ]+):/g
+  const res = []
+  let ar
+  while ((ar = reg.exec(cssText)) !== null) {
+    res.push(ar[1])
+  }
+  return res
+}
+
+function toCamelCase (name) {
+  return name
+  // Uppercase the first character in each group immediately following a dash
+    .replace(/-(.)/g, m => m.toUpperCase() )
+  // Remove dashes
+    .replace(/-/g, '')
+}
+
+export function updateDOMElement (el, tinierEl) {
   mapValues(tinierEl.attributes, (v, k) => {
     if (k === 'id') {
       el.id = v
@@ -56,6 +86,17 @@ function updateDOMElement (el, tinierEl) {
       el.setAttribute(k, v)
     }
   })
+  // delete attributes if not provided
+  Object.keys(el.attributes)
+    .filter(a => !(a in tinierEl.attributes))
+    .map(a => el.removeAttribute(a))
+  // delete styles if not provided
+  const tStyle = tinierEl.attributes.style
+  if (tStyle && !isString(tStyle)) {
+    getStyles(el.style.cssText)
+      .filter(a => !(a in tStyle || toCamelCase(a) in tStyle))
+      .map(a => el.style.removeProperty(a))
+  }
   return el
 }
 
@@ -92,15 +133,18 @@ export function render (container, ...tinierElements) {
   })
 
   // get the children with IDs
-  const childrenWithKeys = filter(container.children, c => c.id)
+  const childrenWithKeys = Array.from(container.children).filter(c => c.id)
   const elementsByID = keyBy(childrenWithKeys, c => c.id)
 
-  const bindings = zipWith(Array.from(container.children), tinierElements, (el, tinierEl) => {
+  const bindings = tinierElements.map((tinierEl, i) => {
+    // container.children is a live collection, so get the current node at this
+    // index
+    const el = container.children[i]
     if (tinierEl) {
       // tinierEl and el exist, then check for a matching node by ID
-      if (tinierEl.id && tinierEl.id in elementsByID) {
+      if (isTinierElement(tinierEl) && tinierEl.attributes.id in elementsByID) {
         // matching ID element
-        const movedEl = elementsByID[el.id]
+        const movedEl = elementsByID[tinierEl.attributes.id]
         if (el) {
           // if match and existing el, then replace the element
           container.replaceChild(movedEl, el)
@@ -112,7 +156,7 @@ export function render (container, ...tinierElements) {
         return renderChildren(movedEl, tinierEl.children)
       } else if (el) {
         // both defined, check type and id
-        if (el.tagName && el.tagName === tinierEl.tagName) {
+        if (el.tagName && el.tagName.toLowerCase() === tinierEl.tagName.toLowerCase()) {
           // matching tag, then update the node to match. Be aware that existing
           // nodes with IDs might get moved, so we should clone them?
           const elToUpdate = el.id ? el.cloneNode(true) : el
@@ -136,7 +180,7 @@ export function render (container, ...tinierElements) {
           const newEl = createDOMElement(tinierEl)
           container.appendChild(newEl)
           return renderChildren(newEl, tinierEl.children)
-        } else {
+        } else { // isString
           // text
           container.appendChild(document.createTextNode(tinierEl))
           return null

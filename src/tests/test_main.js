@@ -2,7 +2,8 @@
 
 'use strict'
 
-import { h, render, binding, ELEMENT, BINDING, } from '../main'
+import { h, render, binding, ELEMENT, BINDING, getStyles, updateDOMElement,
+       } from '../main'
 
 import { describe, it, afterEach, } from 'mocha'
 import { assert } from 'chai'
@@ -20,6 +21,32 @@ describe('h', () => {
       h('div'),
       { tagName: 'div', attributes: {}, children: [], type: ELEMENT }
     )
+  })
+})
+
+describe('getStyles', () => {
+  it('finds style names', () => {
+    assert.deepEqual(getStyles('border-color: green; top: 25px;'),
+                     ['border-color', 'top'])
+  })
+})
+
+describe('updateDOMElement', () => {
+  it('removes old styles and attributes', () => {
+    // Create an element
+    const style = { 'border-radius': '10px', 'border-color': 'red' }
+    const fn = () => 'abc'
+    render(el, <input disabled onClick={ fn } style={ style } id="a"></input>)
+    const newEl = el.firstChild
+    // Update the element
+    const newStyle = { 'border-color': 'green' }
+    updateDOMElement(newEl, <input class="empty" style={ newStyle }></input>)
+    assert.strictEqual(newEl.style.borderRadius, '')
+    assert.strictEqual(newEl.style.borderColor, 'green')
+    assert.strictEqual(newEl.getAttribute('class'), 'empty')
+    assert.strictEqual(newEl.getAttribute('onClick'), null)
+    assert.strictEqual(newEl.id, '')
+    assert.strictEqual(newEl.getAttribute('disabled'), null)
   })
 })
 
@@ -61,6 +88,39 @@ describe('render', () => {
     const newEl = el.firstChild.firstChild
     assert.strictEqual(newEl.getAttribute('href'), 'goo.gl')
     assert.strictEqual(newEl.textContent, 'goog')
+  })
+
+  it('rearrange by ID', () => {
+    render(el, <div>
+           <div id="n1"></div>
+           <div id="n2"></div>
+           <div id="n3"></div>
+           <div id="n4"></div>
+           </div>)
+    const children = Array.from(el.firstChild.children)
+    render(el, <div>
+           <div id="n4"></div>
+           <div id="n1"></div>
+           <div></div>
+           <div id="n2"></div>
+           <div id="n3"></div>
+           </div>)
+    children.map((c, i) => {
+      assert.strictEqual(c, document.getElementById('n' + String(i + 1)))
+    })
+    assert.strictEqual(el.firstChild.firstChild.id, 'n4')
+  })
+
+  it('accepts camel-case or css-style CSS keys', () => {
+    render(el, <div style={{ 'border-color': 'red' }}></div>)
+    assert.strictEqual(el.firstChild.style.borderColor, 'red')
+    render(el, <div style={{ borderRadius: '2px' }}></div>)
+    assert.strictEqual(el.firstChild.style.borderRadius, '2px')
+  })
+
+  it('accepts style string', () => {
+    render(el, <div style="border-color: red;"></div>)
+    assert.strictEqual(el.firstChild.style.borderColor, 'red')
   })
 
   it('returns a bindings object', () =>{
