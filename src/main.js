@@ -2,17 +2,66 @@
 
 'use strict'
 
-import set from 'lodash.set'
-import merge from 'lodash.merge'
 import keyBy from 'lodash.keyBy'
 import mapValues from 'lodash.mapValues'
 
+// constants
+export const BINDING = '@TINIER_BINDING'
+export const ELEMENT = '@TINIER_ELEMENT'
+
+// functions
 function partial (fn, arg) {
   return (...args) => fn(arg, ...args)
 }
 
-export const BINDING = '@TINIER_BINDING'
-export const ELEMENT = '@TINIER_ELEMENT'
+export function addressToObj (address, val) {
+  if (address.length === 0)
+    return val
+  const f = address[0]
+  if (isString(f)) {
+    return { [f]: addressToObj(address.slice(1), val) }
+  } else {
+    const ar = Array(f)
+    ar[f] = addressToObj(address.slice(1), val)
+    return ar
+  }
+}
+
+function mergeBindingsArray (bindings) {
+  return bindings.reduce((acc, binding) => {
+    if (!isArray(binding))
+      throw Error('Incompatible bindings: mix of arrays and objects')
+    for (let i = 0, l = binding.length; i < l; i++) {
+      if (binding[i]) {
+        if (acc[i])
+          throw Error('Incompatible bindings. Binding already exists with index ' + i)
+        acc[i] = binding[i]
+      }
+    }
+    return acc
+  }, [])
+}
+
+function mergeBindingsObject (bindings) {
+  return bindings.reduce((acc, binding) => {
+    if (isArray(binding))
+      throw Error('Incompatible bindings: mix of arrays and objects')
+    for (let k in binding) {
+      if (binding[k]) {
+        if (acc[k])
+          throw Error('Incompatible bindings. Binding already exists with key ' + k)
+        acc[k] = binding[k]
+      }
+    }
+    return acc
+  }, {})
+}
+
+export function mergeBindings (bindings) {
+  return isArray(bindings[0]) ?
+    mergeBindingsArray(bindings) :
+    mergeBindingsObject(bindings)
+}
 
 function tagType (obj, type) {
   return Object.assign({}, obj, { type })
@@ -107,7 +156,7 @@ export function updateDOMElement (el, tinierEl) {
  */
 function renderChildren (el, children) {
 if (isTinierBinding(children)) {
-    return set({}, children.address, el)
+    return addressToObj(children.address, el)
   } else if (isArray(children)) {
     return render(el, ...children)
   } else { // Tinier element
@@ -119,14 +168,18 @@ if (isTinierBinding(children)) {
  * Render the given element tree into the container.
  * @param {Element} container - A DOM element that will be the container for
  * the renedered element tree.
- * @param {...Object|String} tinierElements - Any number of TinierDOM elements
- * or strings that will be rendered.
+ * @param {...[Object|String]|Object|String} tinierElements - Any number of
+ * TinierDOM elements or strings that will be rendered.
  * @return {Object} A nested data structure of bindings for use in Tinier.
  */
-export function render (container, ...tinierElements) {
+export function render (container, ...tinierElementsAr) {
   // check arguments
   if (!isElement(container))
     throw Error('First argument must be a DOM Element.')
+  const tinierElements = tinierElementsAr.reduce((acc, el) => {
+    if (isArray(el)) return [ ...acc, ...el ]
+    else             return [ ...acc,    el ]
+  }, [])
   tinierElements.map(e => {
     if (!isTinierElement(e) && !isString(e))
       throw Error('All arguments except the first must be TinierDOM elements or strings.')
@@ -137,12 +190,25 @@ export function render (container, ...tinierElements) {
   const elementsByID = keyBy(childrenWithKeys, c => c.id)
 
   const bindings = tinierElements.map((tinierEl, i) => {
-    // container.children is a live collection, so get the current node at this
+    // container.childNodes is a live collection, so get the current node at this
     // index
-    const el = container.children[i]
-    if (tinierEl) {
+    const el = container.childNodes[i]
+    if (isString(tinierEl)) {
+      // if string
+      if (el instanceof Text) {
+        // already a text node, then set the text content
+        el.textContent = tinierEl
+      } else if (el) {
+        // not a text node, then replace it
+        container.replaceChild(document.createTextNode(tinierEl), el)
+      } else {
+        // no existing node, then add a new one
+        container.appendChild(document.createTextNode(tinierEl))
+      }
+      return null
+    } else if (isTinierElement(tinierEl)) {
       // tinierEl and el exist, then check for a matching node by ID
-      if (isTinierElement(tinierEl) && tinierEl.attributes.id in elementsByID) {
+      if (tinierEl.attributes.id in elementsByID) {
         // matching ID element
         const movedEl = elementsByID[tinierEl.attributes.id]
         if (el) {
@@ -163,28 +229,17 @@ export function render (container, ...tinierElements) {
           updateDOMElement(elToUpdate, tinierEl)
           if (el.id) container.replaceChild(elToUpdate, el)
           return renderChildren(elToUpdate, tinierEl.children)
-        } else if (isTinierElement(tinierEl)) {
+        } else {
           // not a matching tag, then replace the element with a new one
           const newEl = createDOMElement(tinierEl)
           container.replaceChild(newEl, el)
           return renderChildren(newEl, tinierEl.children)
-        } else if (isString(tinierEl)) {
-          // text
-          container.appendChild(document.createTextNode(tinierEl))
-          return null
         }
       } else {
         // no el and no ID match, then add a new Element or string node
-        if (isTinierElement(tinierEl)) {
-          // tinier element
-          const newEl = createDOMElement(tinierEl)
-          container.appendChild(newEl)
-          return renderChildren(newEl, tinierEl.children)
-        } else { // isString
-          // text
-          container.appendChild(document.createTextNode(tinierEl))
-          return null
-        }
+        const newEl = createDOMElement(tinierEl)
+        container.appendChild(newEl)
+        return renderChildren(newEl, tinierEl.children)
       }
     } else {
       // no tinierEl, then remove the el, if it exists
@@ -195,6 +250,10 @@ export function render (container, ...tinierElements) {
     return null
   })
 
+  // remove extra nodes
+  Array.prototype.slice.call(container.childNodes, tinierElements.length)
+    .map(c => container.removeChild(c))
+
   // merge the bindings
-  return merge({}, ...bindings)
+  return mergeBindings(bindings.filter(b => b !== null))
 }

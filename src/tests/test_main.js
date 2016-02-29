@@ -3,7 +3,7 @@
 'use strict'
 
 import { h, render, binding, ELEMENT, BINDING, getStyles, updateDOMElement,
-       } from '../main'
+         addressToObj, mergeBindings, } from '../main'
 
 import { describe, it, afterEach, } from 'mocha'
 import { assert } from 'chai'
@@ -13,7 +13,28 @@ const document = jsdom.jsdom()
 const window = document.defaultView
 const el = document.body
 global.Element = window.Element
+global.Text = window.Text
 global.document = document
+
+describe('addressToObj', () => {
+  it('nested arrays and objects', () => {
+    assert.deepEqual(addressToObj([ 2, 'a' ], 'VAL')[2], { a: 'VAL' })
+  })
+})
+
+describe('mergeBindings', () => {
+  it('arrays', () => {
+    const ar3 = Array(3)
+    ar3[2] = 'c'
+    assert.deepEqual(mergeBindings([ [ null, 'b', null, 'd' ], [ 'a' ], ar3 ]),
+                     [ 'a', 'b', 'c', 'd' ])
+  })
+
+  it('objects', () => {
+    assert.deepEqual(mergeBindings([ { a: 1 }, { b: 2, c: [ 3 ] }, { c: [ null, 4 ]} ]),
+                     { a: 1, b: 2, c: [ 3, 4 ] })
+  })
+})
 
 describe('h', () => {
   it('returns an object', () => {
@@ -66,11 +87,14 @@ describe('render', () => {
   })
 
   it('renders text with elements', () => {
-    render(el, <div><span>hello</span> world</div>)
-    const newEl = el.firstChild.firstChild
-    const newEl2 = el.firstChild.lastChild
-    assert.strictEqual(newEl.textContent, 'hello')
-    assert.strictEqual(newEl2.textContent, ' world')
+    render(el, <div>hey!, <span>hello</span> world</div>, ':-)')
+    // run again to make sure text nodes are updated
+    render(el, <div>hiya!, <span>hello</span> world</div>)
+    const nodes = el.firstChild.childNodes
+    assert.strictEqual(nodes[0].textContent, 'hiya!, ')
+    assert.strictEqual(nodes[1].textContent, 'hello')
+    assert.strictEqual(nodes[2].textContent, ' world')
+    assert.strictEqual(el.childNodes.length, 1)
   })
 
   it('renders multiple divs', () => {
@@ -115,6 +139,7 @@ describe('render', () => {
     render(el, <div style={{ 'border-color': 'red' }}></div>)
     assert.strictEqual(el.firstChild.style.borderColor, 'red')
     render(el, <div style={{ borderRadius: '2px' }}></div>)
+
     assert.strictEqual(el.firstChild.style.borderRadius, '2px')
   })
 
@@ -128,4 +153,17 @@ describe('render', () => {
     const newEl = el.firstChild.firstChild
     assert.deepEqual(b, { a: { b: newEl }})
   })
+
+  it('accepts lists of nodes', () => {
+    const nodes = [ 'a', 'b', 'c' ].map((x, i) => {
+      return <div id={ x }>{ binding([ i ]) }</div>
+    })
+    const bindings = render(el, <div>{ nodes } Tashi</div>)
+    assert.strictEqual(el.firstChild.childNodes.length, 4)
+    assert.strictEqual(el.firstChild.childNodes[0].id, 'a')
+    assert.strictEqual(el.firstChild.childNodes[3].textContent, ' Tashi')
+    assert.strictEqual(bindings.length, 3)
+    assert.strictEqual(bindings[0], el.firstChild.firstChild)
+  })
+
 })
