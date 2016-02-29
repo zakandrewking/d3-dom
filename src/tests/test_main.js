@@ -16,6 +16,13 @@ global.Element = window.Element
 global.Text = window.Text
 global.document = document
 
+function mouseClick (el) {
+  el.dispatchEvent(new window.MouseEvent('click',
+                                         { view: window,
+                                           bubbles: true,
+                                           cancelable: true }))
+}
+
 describe('addressToObj', () => {
   it('nested arrays and objects', () => {
     assert.deepEqual(addressToObj([ 2, 'a' ], 'VAL')[2], { a: 'VAL' })
@@ -166,4 +173,16 @@ describe('render', () => {
     assert.strictEqual(bindings[0], el.firstChild.firstChild)
   })
 
+  it('adds listeners', (done) => {
+    render(el, <div onClick={ () => done() }></div>)
+    mouseClick(el.firstChild)
+  })
+
+  it('removes listeners', () => {
+    let clicked = false
+    render(el, <div onClick={ () => clicked = true }></div>)
+    render(el, <div></div>)
+    mouseClick(el)
+    assert.isFalse(clicked)
+  })
 })

@@ -131,9 +131,13 @@ export function getStyles (cssText) {
 function toCamelCase (name) {
   return name
   // Uppercase the first character in each group immediately following a dash
-    .replace(/-(.)/g, m => m.toUpperCase() )
+    .replace(/-(.)/g, m => m.toUpperCase())
   // Remove dashes
     .replace(/-/g, '')
+}
+
+function stripOn (name) {
+  return name.slice(2).toLowerCase()
 }
 
 export function updateDOMElement (el, tinierEl) {
@@ -144,14 +148,22 @@ export function updateDOMElement (el, tinierEl) {
       mapValues(v, (sv, sk) => {
         el.style.setProperty(sk, sv)
       })
+    } else if (k.indexOf('on') === 0) {
+      el['__tinier_' + k] = v
+      el.addEventListener(stripOn(k), v)
     } else {
       el.setAttribute(k, v)
     }
   })
   // delete attributes if not provided
   Object.keys(el.attributes)
-    .filter(a => !(a in tinierEl.attributes))
-    .map(a => el.removeAttribute(a))
+    .filter(k => !(k in tinierEl.attributes))
+    .map(k => {
+      if (k.indexOf('on') === 0)
+        el.removeEventListener(stripOn(k), el['__tinier_' + k])
+      else
+        el.removeAttribute(k)
+    })
   // delete styles if not provided
   const tStyle = tinierEl.attributes.style
   if (tStyle && !isString(tStyle)) {
