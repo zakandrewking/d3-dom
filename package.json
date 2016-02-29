@@ -22,10 +22,6 @@
     "url": "https://github.com/zakandrewking/tinier-dom/issues"
   },
   "homepage": "https://github.com/zakandrewking/tinier-dom#readme",
-  "dependencies": {
-    "lodash.keyby": "^4.2.0",
-    "lodash.mapvalues": "^4.2.0"
-  },
   "devDependencies": {
     "babel-cli": "^6.4.5",
     "babel-core": "^6.4.0",

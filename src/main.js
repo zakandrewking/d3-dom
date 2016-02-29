@@ -2,9 +2,6 @@
 
 'use strict'
 
-import keyBy from 'lodash.keyBy'
-import mapValues from 'lodash.mapValues'
-
 // constants
 export const BINDING = '@TINIER_BINDING'
 export const ELEMENT = '@TINIER_ELEMENT'
@@ -12,6 +9,20 @@ export const ELEMENT = '@TINIER_ELEMENT'
 // functions
 function partial (fn, arg) {
   return (...args) => fn(arg, ...args)
+}
+
+function keyBy (arr, key) {
+  var obj = {}
+  arr.map(x => obj[x[key]] = x)
+  return obj
+}
+
+function mapValues (obj, fn) {
+  const newObj = {}
+  for (let key in obj) {
+    newObj[key] = fn(obj[key], key)
+  }
+  return newObj
 }
 
 export function addressToObj (address, val) {
@@ -187,7 +198,7 @@ export function render (container, ...tinierElementsAr) {
 
   // get the children with IDs
   const childrenWithKeys = Array.from(container.children).filter(c => c.id)
-  const elementsByID = keyBy(childrenWithKeys, c => c.id)
+  const elementsByID = keyBy(childrenWithKeys, 'id')
 
   const bindings = tinierElements.map((tinierEl, i) => {
     // container.childNodes is a live collection, so get the current node at this
