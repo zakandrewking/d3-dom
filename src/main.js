@@ -1,7 +1,5 @@
 /** @module tinier-dom */
 
-'use strict'
-
 // constants
 export const BINDING = '@TINIER_BINDING'
 export const ELEMENT = '@TINIER_ELEMENT'

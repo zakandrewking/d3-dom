@@ -1,7 +1,5 @@
 /* global global */
 
-'use strict'
-
 import { h, render, binding, ELEMENT, BINDING, getStyles, updateDOMElement,
          addressToObj, mergeBindings, } from '../main'
 
