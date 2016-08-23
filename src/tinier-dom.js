@@ -260,17 +260,15 @@ export function render (container, ...tinierElementsAr) {
         }
       } else {
         // no el and no ID match, then add a new Element or string node
-        const newEl = createDOMElement(tinierEl)
-        container.appendChild(newEl)
-        return renderChildren(newEl, tinierEl.children)
+        const newEl2 = createDOMElement(tinierEl)
+        container.appendChild(newEl2)
+        return renderChildren(newEl2, tinierEl.children)
       }
     } else {
       // no tinierEl, then remove the el, if it exists
       if (el) container.removeChild(el)
       return null
     }
-    // just in case
-    return null
   })
 
   // remove extra nodes

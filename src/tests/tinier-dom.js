@@ -1,7 +1,9 @@
 /* global global */
 
-import { h, render, binding, ELEMENT, BINDING, getStyles, updateDOMElement,
-         addressToObj, mergeBindings, } from '../main'
+import {
+  h, render, binding, ELEMENT, BINDING, getStyles, updateDOMElement,
+  addressToObj, mergeBindings,
+} from '../tinier-dom'
 
 import { describe, it, afterEach, } from 'mocha'
 import { assert } from 'chai'
