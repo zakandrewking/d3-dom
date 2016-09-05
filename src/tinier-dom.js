@@ -38,14 +38,16 @@ export function addressToObj (address, val) {
 
 function mergeBindingsArray (bindings) {
   return bindings.reduce((acc, binding) => {
-    if (!isArray(binding))
+    if (!isArray(binding)) {
       throw Error('Incompatible bindings: mix of types')
+    }
     for (let i = 0, l = binding.length; i < l; i++) {
       if (binding[i]) {
-        if (acc[i])
+        if (acc[i]) {
           acc[i] = mergeBindings([ binding[i], acc[i] ])
-        else
+        } else {
           acc[i] = binding[i]
+        }
       }
     }
     return acc
@@ -58,10 +60,11 @@ function mergeBindingsObject (bindings) {
       throw Error('Incompatible bindings: mix of types')
     for (let k in binding) {
       if (binding[k]) {
-        if (acc[k])
+        if (acc[k]) {
           acc[k] = mergeBindings([ binding[k], acc[k] ])
-        else
+        } else {
           acc[k] = binding[k]
+        }
       }
     }
     return acc
@@ -108,7 +111,7 @@ export function h (tagName, attributes = {}, ...childrenAr) {
  * @param {Array} address - An address array.
  * @return {Object} A TinierDOM binding.
  */
-export function binding (address) {
+export function bind (address) {
   return tagType({ address }, BINDING)
 }
 
@@ -178,7 +181,7 @@ export function updateDOMElement (el, tinierEl) {
  * @return {Object[]} An array of children to render.
  */
 function renderChildren (el, children) {
-if (isTinierBinding(children)) {
+  if (isTinierBinding(children)) {
     return addressToObj(children.address, el)
   } else if (isArray(children)) {
     return render(el, ...children)
@@ -197,15 +200,18 @@ if (isTinierBinding(children)) {
  */
 export function render (container, ...tinierElementsAr) {
   // check arguments
-  if (!isElement(container))
-    throw Error('First argument must be a DOM Element.')
+  if (!isElement(container)) {
+    throw new Error('First argument must be a DOM Element.')
+  }
   const tinierElements = tinierElementsAr.reduce((acc, el) => {
     if (isArray(el)) return [ ...acc, ...el ]
     else             return [ ...acc,    el ]
   }, [])
   tinierElements.map(e => {
-    if (!isTinierElement(e) && !isString(e))
-      throw Error('All arguments except the first must be TinierDOM elements or strings.')
+    if (!isTinierElement(e) && !isTinierBinding(e) && !isString(e)) {
+      throw new Error('All arguments except the first must be TinierDOM elements, ' +
+                      'TinierDOM bindings, or strings.')
+    }
   })
 
   // get the children with IDs
@@ -216,7 +222,9 @@ export function render (container, ...tinierElementsAr) {
     // container.childNodes is a live collection, so get the current node at this
     // index
     const el = container.childNodes[i]
-    if (isString(tinierEl)) {
+    if (isTinierBinding(tinierEl)) {
+        return tinierEl
+    } else if (isString(tinierEl)) {
       // if string
       if (el instanceof Text) {
         // already a text node, then set the text content

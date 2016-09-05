@@ -1,9 +1,9 @@
 /* global global */
 
 import {
-  h, render, binding, ELEMENT, BINDING, getStyles, updateDOMElement,
+  h, render, bind, ELEMENT, BINDING, getStyles, updateDOMElement,
   addressToObj, mergeBindings,
-} from '../tinier-dom'
+} from './tinier-dom'
 
 import { describe, it, afterEach, } from 'mocha'
 import { assert } from 'chai'
@@ -156,14 +156,14 @@ describe('render', () => {
   })
 
   it('returns a bindings object', () =>{
-    const b = render(el, <div><a href="goo.gl">{ binding(['a', 'b']) }</a></div>)
+    const b = render(el, <div><a href="goo.gl">{ bind(['a', 'b']) }</a></div>)
     const newEl = el.firstChild.firstChild
     assert.deepEqual(b, { a: { b: newEl }})
   })
 
   it('accepts lists of nodes', () => {
     const nodes = [ 'a', 'b', 'c' ].map((x, i) => {
-      return <div id={ x }>{ binding([ i ]) }</div>
+      return <div id={ x }>{ bind([ i ]) }</div>
     })
     const bindings = render(el, <div>{ nodes } Tashi</div>)
     assert.strictEqual(el.firstChild.childNodes.length, 4)
