@@ -3,6 +3,7 @@
 // constants
 export const BINDING = '@TINIER_BINDING'
 export const ELEMENT = '@TINIER_ELEMENT'
+const ON_PREFIX = '__tinier_'
 
 // functions
 function partial (fn, arg) {
@@ -141,31 +142,48 @@ function stripOn (name) {
   return name.slice(2).toLowerCase()
 }
 
+/**
+ * Update the DOM element to match a TinierDOM element.
+ * @param {Element} el - An existing DOM element.
+ * @param {Object} tinierEl - A TinierDOM element.
+ */
 export function updateDOMElement (el, tinierEl) {
+  // Update the attributes.
+  // TODO is it faster to check first, or set first?
   mapValues(tinierEl.attributes, (v, k) => {
     if (k === 'id') {
+      // ID is set directly
       el.id = v
     } else if (k === 'style' && !isString(v)) {
+      // For a style object. For a style string, use setAttribute below.
       mapValues(v, (sv, sk) => {
         el.style.setProperty(sk, sv)
       })
     } else if (k.indexOf('on') === 0) {
-      el['__tinier_' + k] = v
+      // Special handling for listeners
+      el[ON_PREFIX + k] = v
       el.addEventListener(stripOn(k), v)
     } else {
+      // By default, set the attribute.
       el.setAttribute(k, v)
     }
   })
-  // delete attributes if not provided
-  Object.keys(el.attributes)
+  // Delete attributes if not provided. First, loop through this attributes
+  // object to get a nice array.
+  let attributeNames = []
+  for (let i = 0, l = el.attributes.length; i < l; i++) {
+    attributeNames.push(el.attributes[i].name)
+  }
+  attributeNames
     .filter(k => !(k in tinierEl.attributes))
     .map(k => {
-      if (k.indexOf('on') === 0)
-        el.removeEventListener(stripOn(k), el['__tinier_' + k])
-      else
+      if (k.indexOf('on') === 0) {
+        el.removeEventListener(stripOn(k), el[ON_PREFIX + k])
+      } else {
         el.removeAttribute(k)
+      }
     })
-  // delete styles if not provided
+  // Delete styles if not provided.
   const tStyle = tinierEl.attributes.style
   if (tStyle && !isString(tStyle)) {
     getStyles(el.style.cssText)

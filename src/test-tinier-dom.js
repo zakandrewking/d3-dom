@@ -1,8 +1,8 @@
 /* global global */
 
 import {
-  h, render, bind, ELEMENT, BINDING, getStyles, updateDOMElement,
-  addressToObj, mergeBindings,
+  h, render, bind, ELEMENT, BINDING, getStyles, updateDOMElement, addressToObj,
+  mergeBindings,
 } from './tinier-dom'
 
 import { describe, it, afterEach, } from 'mocha'
@@ -155,10 +155,31 @@ describe('render', () => {
     assert.strictEqual(el.firstChild.style.borderColor, 'red')
   })
 
-  it('returns a bindings object', () =>{
-    const b = render(el, <div><a href="goo.gl">{ bind(['a', 'b']) }</a></div>)
-    const newEl = el.firstChild.firstChild
-    assert.deepEqual(b, { a: { b: newEl }})
+  it('returns a bindings object -- multiple', () =>{
+    const bindings = render(
+      el,
+      <div>
+        <a href="goo.gl">{ bind(['a', 'b']) }</a>
+        <a href="goo.gl">{ bind(['a', 'c']) }</a>
+      </div>
+    )
+    const expect = { a: {
+      b: el.firstChild.children[0],
+      c: el.firstChild.children[1],
+    } }
+    assert.deepEqual(bindings, expect)
+  })
+
+  it('returns a bindings object -- sibling', () =>{
+    const bindings = render(
+      el,
+      <div>
+        <div></div>
+        { bind([ 'a', 'b' ]) }
+      </div>
+    )
+    const expect = { a: { b: el.firstChild.firstChild } }
+    assert.deepEqual(bindings, expect)
   })
 
   it('accepts lists of nodes', () => {
