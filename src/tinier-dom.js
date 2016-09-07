@@ -10,6 +10,12 @@ function partial (fn, arg) {
   return (...args) => fn(arg, ...args)
 }
 
+/**
+ * Turn an array of objects into a new object of objects where the keys are
+ * given by the value of `key` in each child object.
+ * @param {[Object]} arr - The array of objects.
+ * @param {String} key - The key to look for.
+ */
 function keyBy (arr, key) {
   var obj = {}
   arr.map(x => obj[x[key]] = x)
@@ -24,9 +30,13 @@ function mapValues (obj, fn) {
   return newObj
 }
 
+/**
+ *
+ */
 export function addressToObj (address, val) {
-  if (address.length === 0)
+  if (address.length === 0) {
     return val
+  }
   const f = address[0]
   if (isString(f)) {
     return { [f]: addressToObj(address.slice(1), val) }
@@ -37,7 +47,7 @@ export function addressToObj (address, val) {
   }
 }
 
-function mergeBindingsArray (bindings) {
+function objectForBindingsArray (bindings) {
   return bindings.reduce((acc, binding) => {
     if (!isArray(binding)) {
       throw Error('Incompatible bindings: mix of types')
@@ -45,7 +55,7 @@ function mergeBindingsArray (bindings) {
     for (let i = 0, l = binding.length; i < l; i++) {
       if (binding[i]) {
         if (acc[i]) {
-          acc[i] = mergeBindings([ binding[i], acc[i] ])
+          acc[i] = objectForBindings([ binding[i], acc[i] ])
         } else {
           acc[i] = binding[i]
         }
@@ -55,14 +65,14 @@ function mergeBindingsArray (bindings) {
   }, [])
 }
 
-function mergeBindingsObject (bindings) {
+function objectForBindingsObject (bindings) {
   return bindings.reduce((acc, binding) => {
     if (isArray(binding))
       throw Error('Incompatible bindings: mix of types')
     for (let k in binding) {
       if (binding[k]) {
         if (acc[k]) {
-          acc[k] = mergeBindings([ binding[k], acc[k] ])
+          acc[k] = objectForBindings([ binding[k], acc[k] ])
         } else {
           acc[k] = binding[k]
         }
@@ -72,10 +82,10 @@ function mergeBindingsObject (bindings) {
   }, {})
 }
 
-export function mergeBindings (bindings) {
+export function objectForBindings (bindings) {
   return isArray(bindings[0]) ?
-    mergeBindingsArray(bindings) :
-    mergeBindingsObject(bindings)
+    objectForBindingsArray(bindings) :
+    objectForBindingsObject(bindings)
 }
 
 function tagType (obj, type) {
@@ -93,17 +103,17 @@ const isString = v => typeof v === 'string'
 
 /**
  * Create a new TinierDOM element.
- * @param {String} tagName
- * @param {Object|null} attributes = {} - The attributes. Note that JSX will
- * pass null in when there are no attributes. In the resulting object, this will
- * be an empty object {}.
- * @param {Object[]|Object|String} ...childrenAr - A single binding or a mix of
- * elements and strings.
+ * @param {String} tagName - The name for the element.
+ * @param {Object|null} attributesIn - The attributes. Note that JSX will pass
+ *                                     null in when there are no attributes. In
+ *                                     the resulting object, this will be an
+ *                                     empty object {}.
+ * @param {Object[]|Object|String} ...children - A single binding or a mix of
+ *                                               elements and strings.
  * @return {Object} A TinierDOM element.
  */
-export function h (tagName, attributes = {}, ...childrenAr) {
-  if (!attributes) attributes = {}
-  const children = isTinierBinding(childrenAr[0]) ? childrenAr[0] : childrenAr
+export function h (tagName, attributesIn, ...children) {
+  const attributes = attributesIn == null ? {} : attributesIn
   return tagType({ tagName, attributes, children }, ELEMENT)
 }
 
@@ -194,26 +204,11 @@ export function updateDOMElement (el, tinierEl) {
 }
 
 /**
- * Deal with possible children values.
- * @param {Object[]|Object|String} children
- * @return {Object[]} An array of children to render.
- */
-function renderChildren (el, children) {
-  if (isTinierBinding(children)) {
-    return addressToObj(children.address, el)
-  } else if (isArray(children)) {
-    return render(el, ...children)
-  } else { // Tinier element
-    throw Error('Unrecognized type for children')
-  }
-}
-
-/**
  * Render the given element tree into the container.
  * @param {Element} container - A DOM element that will be the container for
- * the renedered element tree.
- * @param {...[Object|String]|Object|String} tinierElements - Any number of
- * TinierDOM elements or strings that will be rendered.
+ *                              the renedered element tree.
+ * @param {...[Object|String]|Object|String} tinierElementsAr -
+ *   Any number of TinierDOM elements or strings that will be rendered.
  * @return {Object} A nested data structure of bindings for use in Tinier.
  */
 export function render (container, ...tinierElementsAr) {
@@ -221,14 +216,17 @@ export function render (container, ...tinierElementsAr) {
   if (!isElement(container)) {
     throw new Error('First argument must be a DOM Element.')
   }
+
+  // flatten the elements array
   const tinierElements = tinierElementsAr.reduce((acc, el) => {
-    if (isArray(el)) return [ ...acc, ...el ]
-    else             return [ ...acc,    el ]
+    return isArray(el) ? [ ...acc, ...el ] : [ ...acc, el ]
   }, [])
+
+  // check the elements array
   tinierElements.map(e => {
     if (!isTinierElement(e) && !isTinierBinding(e) && !isString(e)) {
-      throw new Error('All arguments except the first must be TinierDOM elements, ' +
-                      'TinierDOM bindings, or strings.')
+      throw new Error('All arguments except the first must be TinierDOM ' +
+                      'elements, TinierDOM bindings, or strings.')
     }
   })
 
@@ -236,29 +234,38 @@ export function render (container, ...tinierElementsAr) {
   const childrenWithKeys = Array.from(container.children).filter(c => c.id)
   const elementsByID = keyBy(childrenWithKeys, 'id')
 
-  const bindings = tinierElements.map((tinierEl, i) => {
-    // container.childNodes is a live collection, so get the current node at this
-    // index
-    const el = container.childNodes[i]
+  // render each element
+  const bindingsAr = tinierElements.map((tinierEl, i) => {
+    // If an element if a binding, then there can only be one child.
     if (isTinierBinding(tinierEl)) {
-        return tinierEl
-    } else if (isString(tinierEl)) {
-      // if string
+      if (tinierElements.length !== 1) {
+        throw new Error('A binding cannot have siblings in TinierDOM. ' +
+                        'At binding: [ ' + tinierEl.address.join(', ') + ' ].')
+      }
+      return addressToObj(tinierEl.address, container)
+    }
+
+    // container.childNodes is a live collection, so get the current node at
+    // this index.
+    const el = container.childNodes[i]
+    if (isString(tinierEl)) {
+      // This should be a text node.
       if (el instanceof Text) {
-        // already a text node, then set the text content
+        // If already a text node, then set the text content.
         el.textContent = tinierEl
       } else if (el) {
-        // not a text node, then replace it
+        // If not a text node, then replace it.
         container.replaceChild(document.createTextNode(tinierEl), el)
       } else {
-        // no existing node, then add a new one
+        // If no existing node, then add a new one.
         container.appendChild(document.createTextNode(tinierEl))
       }
+      // No binding here.
       return null
     } else if (isTinierElement(tinierEl)) {
-      // tinierEl and el exist, then check for a matching node by ID
+      // tinierEl is a TinierDOM element.
       if (tinierEl.attributes.id in elementsByID) {
-        // matching ID element
+        // el exist, then check for a matching node by ID
         const movedEl = elementsByID[tinierEl.attributes.id]
         if (el) {
           // if match and existing el, then replace the element
@@ -268,7 +275,7 @@ export function render (container, ...tinierElementsAr) {
           container.appendChild(movedEl)
         }
         // then render children
-        return renderChildren(movedEl, tinierEl.children)
+        return render(movedEl, ...tinierEl.children)
       } else if (el) {
         // both defined, check type and id
         if (el.tagName && el.tagName.toLowerCase() === tinierEl.tagName.toLowerCase()) {
@@ -277,18 +284,18 @@ export function render (container, ...tinierElementsAr) {
           const elToUpdate = el.id ? el.cloneNode(true) : el
           updateDOMElement(elToUpdate, tinierEl)
           if (el.id) container.replaceChild(elToUpdate, el)
-          return renderChildren(elToUpdate, tinierEl.children)
+          return render(elToUpdate, ...tinierEl.children)
         } else {
           // not a matching tag, then replace the element with a new one
           const newEl = createDOMElement(tinierEl)
           container.replaceChild(newEl, el)
-          return renderChildren(newEl, tinierEl.children)
+          return render(newEl, ...tinierEl.children)
         }
       } else {
         // no el and no ID match, then add a new Element or string node
         const newEl2 = createDOMElement(tinierEl)
         container.appendChild(newEl2)
-        return renderChildren(newEl2, tinierEl.children)
+        return render(newEl2, ...tinierEl.children)
       }
     } else {
       // no tinierEl, then remove the el, if it exists
@@ -301,6 +308,6 @@ export function render (container, ...tinierElementsAr) {
   Array.prototype.slice.call(container.childNodes, tinierElements.length)
     .map(c => container.removeChild(c))
 
-  // merge the bindings
-  return mergeBindings(bindings.filter(b => b !== null))
+  // bindings array to object
+  return objectForBindings(bindingsAr.filter(b => b !== null))
 }

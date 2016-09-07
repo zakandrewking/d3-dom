@@ -2,7 +2,7 @@
 
 import {
   h, render, bind, ELEMENT, BINDING, getStyles, updateDOMElement, addressToObj,
-  mergeBindings,
+  objectForBindings,
 } from './tinier-dom'
 
 import { describe, it, afterEach, } from 'mocha'
@@ -29,16 +29,16 @@ describe('addressToObj', () => {
   })
 })
 
-describe('mergeBindings', () => {
+describe('objectForBindings', () => {
   it('arrays', () => {
     const ar3 = Array(3)
     ar3[2] = 'c'
-    assert.deepEqual(mergeBindings([ [ null, 'b', null, 'd' ], [ 'a' ], ar3 ]),
+    assert.deepEqual(objectForBindings([ [ null, 'b', null, 'd' ], [ 'a' ], ar3 ]),
                      [ 'a', 'b', 'c', 'd' ])
   })
 
   it('objects', () => {
-    assert.deepEqual(mergeBindings([ { a: 1 }, { b: 2, c: [ 3 ] }, { c: [ null, 4 ]} ]),
+    assert.deepEqual(objectForBindings([ { a: 1 }, { b: 2, c: [ 3 ] }, { c: [ null, 4 ]} ]),
                      { a: 1, b: 2, c: [ 3, 4 ] })
   })
 })
@@ -48,6 +48,13 @@ describe('h', () => {
     assert.deepEqual(
       h('div'),
       { tagName: 'div', attributes: {}, children: [], type: ELEMENT }
+    )
+  })
+
+  it('takes children as an array', () => {
+    assert.deepEqual(
+      h('div', null, 'a', 'b'),
+      { tagName: 'div', attributes: {}, children: [ 'a', 'b' ], type: ELEMENT }
     )
   })
 })
@@ -155,12 +162,18 @@ describe('render', () => {
     assert.strictEqual(el.firstChild.style.borderColor, 'red')
   })
 
-  it('returns a bindings object -- multiple', () =>{
+  it('returns a bindings object -- top', () => {
+    const bindings = render(el, bind([ 'a', 'b' ]))
+    const expect = { a: { b: el } }
+    assert.deepEqual(bindings, expect)
+  })
+
+  it('returns a bindings object -- multiple', () => {
     const bindings = render(
       el,
       <div>
-        <a href="goo.gl">{ bind(['a', 'b']) }</a>
-        <a href="goo.gl">{ bind(['a', 'c']) }</a>
+        <a href="goo.gl">{ bind([ 'a', 'b' ]) }</a>
+        <a href="goo.gl">{ bind([ 'a', 'c' ]) }</a>
       </div>
     )
     const expect = { a: {
@@ -170,16 +183,16 @@ describe('render', () => {
     assert.deepEqual(bindings, expect)
   })
 
-  it('returns a bindings object -- sibling', () =>{
-    const bindings = render(
-      el,
-      <div>
-        <div></div>
-        { bind([ 'a', 'b' ]) }
-      </div>
-    )
-    const expect = { a: { b: el.firstChild.firstChild } }
-    assert.deepEqual(bindings, expect)
+  it('returns a bindings object -- sibling', () => {
+    assert.throws(() => {
+      const bindings = render(
+        el,
+        <div>
+          <div></div>
+          { bind([ 'a', 'b' ]) }
+        </div>
+      )
+    }, /A binding cannot have siblings in TinierDOM/)
   })
 
   it('accepts lists of nodes', () => {
