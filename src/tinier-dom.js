@@ -119,10 +119,12 @@ export function h (tagName, attributesIn, ...children) {
 
 /**
  * Create a new TinierDOM binding.
- * @param {Array} address - An address array.
+ * @param {Array|String|Number} addressIn - An address array, or single key or
+ *                                          index.
  * @return {Object} A TinierDOM binding.
  */
-export function bind (address) {
+export function bind (addressIn) {
+  const address = isArray(addressIn) ? addressIn : [ addressIn ]
   return tagType({ address }, BINDING)
 }
 

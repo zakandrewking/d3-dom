@@ -168,6 +168,19 @@ describe('render', () => {
     assert.deepEqual(bindings, expect)
   })
 
+  it('returns a bindings object -- no array, string', () => {
+    const bindings = render(el, bind('at'))
+    const expect = { at: el }
+    assert.deepEqual(bindings, expect)
+  })
+
+  it('returns a bindings object -- no array, integer', () => {
+    const bindings = render(el, bind(1))
+    const expect = Array(2)
+    expect[1] = el
+    assert.deepEqual(bindings, expect)
+  })
+
   it('returns a bindings object -- multiple', () => {
     const bindings = render(
       el,
