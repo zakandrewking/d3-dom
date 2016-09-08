@@ -5,6 +5,18 @@ export const BINDING = '@TINIER_BINDING'
 export const ELEMENT = '@TINIER_ELEMENT'
 const ON_PREFIX = '__tinier_'
 
+function reverseObject (obj) {
+  const newObj = {}
+  for (let k in obj) {
+    newObj[obj[k]] = k
+  }
+  return newObj
+}
+
+// some attribute renaming as seen in React
+const ATTRIBUTE_RENAME = { className: 'class', htmlFor: 'for' }
+const ATTRIBUTE_RENAME_REV = reverseObject(ATTRIBUTE_RENAME)
+
 // functions
 function partial (fn, arg) {
   return (...args) => fn(arg, ...args)
@@ -175,6 +187,10 @@ export function updateDOMElement (el, tinierEl) {
       // Special handling for listeners
       el[ON_PREFIX + k] = v
       el.addEventListener(stripOn(k), v)
+    } else if (k in ATTRIBUTE_RENAME) {
+      // By default, set the attribute.
+      console.log(ATTRIBUTE_RENAME[k], v)
+      el.setAttribute(ATTRIBUTE_RENAME[k], v)
     } else {
       // By default, set the attribute.
       el.setAttribute(k, v)
@@ -191,6 +207,8 @@ export function updateDOMElement (el, tinierEl) {
     .map(k => {
       if (k.indexOf('on') === 0) {
         el.removeEventListener(stripOn(k), el[ON_PREFIX + k])
+      } else if (k in ATTRIBUTE_RENAME_REV) {
+        el.removeAttribute(ATTRIBUTE_RENAME_REV[k])
       } else {
         el.removeAttribute(k)
       }

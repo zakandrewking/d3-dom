@@ -75,13 +75,19 @@ describe('updateDOMElement', () => {
     const newEl = el.firstChild
     // Update the element
     const newStyle = { 'border-color': 'green' }
-    updateDOMElement(newEl, <input class="empty" style={ newStyle }></input>)
+    updateDOMElement(newEl, <input style={ newStyle }></input>)
     assert.strictEqual(newEl.style.borderRadius, '')
     assert.strictEqual(newEl.style.borderColor, 'green')
-    assert.strictEqual(newEl.getAttribute('class'), 'empty')
     assert.strictEqual(newEl.getAttribute('onClick'), null)
     assert.strictEqual(newEl.id, '')
     assert.strictEqual(newEl.getAttribute('disabled'), null)
+  })
+
+  it('converts className to class', () => {
+    render(el, <input></input>)
+    const newEl = el.firstChild
+    updateDOMElement(newEl, <input className="empty"></input>)
+    assert.strictEqual(newEl.getAttribute('class'), 'empty')
   })
 })
 
