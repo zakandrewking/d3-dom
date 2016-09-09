@@ -3,7 +3,7 @@
 // constants
 export const BINDING = '@TINIER_BINDING'
 export const ELEMENT = '@TINIER_ELEMENT'
-const ON_PREFIX = '__tinier_'
+const LISTENER_OBJECT = '@TINIER_LISTENERS'
 
 function reverseObject (obj) {
   const newObj = {}
@@ -166,12 +166,28 @@ function stripOn (name) {
   return name.slice(2).toLowerCase()
 }
 
+function setAttributeCheckBool (el, name, val) {
+  if (val === true) {
+    el.setAttribute(name, name)
+  } else if (val !== false) {
+    el.setAttribute(name, val)
+  }
+}
+
 /**
  * Update the DOM element to match a TinierDOM element.
  * @param {Element} el - An existing DOM element.
  * @param {Object} tinierEl - A TinierDOM element.
  */
 export function updateDOMElement (el, tinierEl) {
+  // remove event listeners first, because they cannot simply be replaced
+  if (el.hasOwnProperty(LISTENER_OBJECT)) {
+    mapValues(el[LISTENER_OBJECT], (onFn, name) => {
+      el.removeEventListener(name, onFn)
+    })
+    delete el[LISTENER_OBJECT]
+  }
+
   // Update the attributes.
   // TODO is it faster to check first, or set first?
   mapValues(tinierEl.attributes, (v, k) => {
@@ -185,15 +201,16 @@ export function updateDOMElement (el, tinierEl) {
       })
     } else if (k.indexOf('on') === 0) {
       // Special handling for listeners
-      el[ON_PREFIX + k] = v
-      el.addEventListener(stripOn(k), v)
+      if (!el.hasOwnProperty(LISTENER_OBJECT)) el[LISTENER_OBJECT] = {}
+      const name = stripOn(k)
+      el[LISTENER_OBJECT][name] = v
+      el.addEventListener(name, v)
     } else if (k in ATTRIBUTE_RENAME) {
       // By default, set the attribute.
-      console.log(ATTRIBUTE_RENAME[k], v)
-      el.setAttribute(ATTRIBUTE_RENAME[k], v)
+      setAttributeCheckBool(el, ATTRIBUTE_RENAME[k], v)
     } else {
       // By default, set the attribute.
-      el.setAttribute(k, v)
+      setAttributeCheckBool(el, k, v)
     }
   })
   // Delete attributes if not provided. First, loop through this attributes
@@ -203,11 +220,9 @@ export function updateDOMElement (el, tinierEl) {
     attributeNames.push(el.attributes[i].name)
   }
   attributeNames
-    .filter(k => !(k in tinierEl.attributes))
+    .filter(k => !(k in tinierEl.attributes) || tinierEl.attributes[k] === false)
     .map(k => {
-      if (k.indexOf('on') === 0) {
-        el.removeEventListener(stripOn(k), el[ON_PREFIX + k])
-      } else if (k in ATTRIBUTE_RENAME_REV) {
+      if (k in ATTRIBUTE_RENAME_REV) {
         el.removeAttribute(ATTRIBUTE_RENAME_REV[k])
       } else {
         el.removeAttribute(k)

@@ -89,6 +89,39 @@ describe('updateDOMElement', () => {
     updateDOMElement(newEl, <input className="empty"></input>)
     assert.strictEqual(newEl.getAttribute('class'), 'empty')
   })
+
+  it('handles boolean attributes', () => {
+    render(el, <input></input>)
+    const newEl = el.firstChild
+    assert.isFalse(newEl.hasAttribute('checked'))
+    updateDOMElement(newEl, <input checked={ true }></input>)
+    assert.strictEqual(newEl.getAttribute('checked'), 'checked')
+    updateDOMElement(newEl, <input checked={ false }></input>)
+    assert.isFalse(newEl.hasAttribute('checked'))
+  })
+
+  it('removes on* functions', () => {
+    let called = 0
+    const inc = () => called++
+    render(el, <input></input>)
+    const newEl = el.firstChild
+    updateDOMElement(newEl, <input onClick={ inc }></input>)
+    updateDOMElement(newEl, <input></input>)
+    mouseClick(newEl)
+    assert.strictEqual(called, 0)
+  })
+
+  it('does not set on* functions multiple times', () => {
+    let called = 0
+    const inc1 = () => called++
+    const inc2 = () => called++
+    render(el, <input></input>)
+    const newEl = el.firstChild
+    updateDOMElement(newEl, <input onClick={ inc1 }></input>)
+    updateDOMElement(newEl, <input onClick={ inc2 }></input>)
+    mouseClick(newEl)
+    assert.strictEqual(called, 1)
+  })
 })
 
 describe('render', () => {
