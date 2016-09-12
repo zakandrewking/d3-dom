@@ -274,6 +274,13 @@ describe('render', () => {
     mouseClick(el.firstChild)
   })
 
+  it('error for invalid listeners', () => {
+    assert.throws(() => {
+      const methods = {}
+      render(el, <div onClick={ methods.bad }></div>)
+    })
+  })
+
   it('removes listeners', () => {
     let clicked = false
     render(el, <div onClick={ () => clicked = true }></div>)

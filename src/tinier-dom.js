@@ -23,6 +23,15 @@ function partial (fn, arg) {
 }
 
 /**
+ * Check if the object is a function.
+ * @param {*} object - The object to test.
+ * @return {Boolean}
+ */
+export function isFunction (object) {
+  return typeof(object) === 'function'
+}
+
+/**
  * Turn an array of objects into a new object of objects where the keys are
  * given by the value of `key` in each child object.
  * @param {[Object]} arr - The array of objects.
@@ -203,6 +212,9 @@ export function updateDOMElement (el, tinierEl) {
       // Special handling for listeners
       if (!el.hasOwnProperty(LISTENER_OBJECT)) el[LISTENER_OBJECT] = {}
       const name = stripOn(k)
+      if (!isFunction(v)) {
+        throw new Error(v + ' is not a function.')
+      }
       el[LISTENER_OBJECT][name] = v
       el.addEventListener(name, v)
     } else if (k in ATTRIBUTE_RENAME) {
