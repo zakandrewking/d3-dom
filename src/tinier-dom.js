@@ -252,18 +252,13 @@ export function render (container, ...tinierElementsAr) {
     throw new Error('First argument must be a DOM Element.')
   }
 
-  // flatten the elements array
-  const tinierElements = tinierElementsAr.reduce((acc, el) => {
-    return isArray(el) ? [ ...acc, ...el ] : [ ...acc, el ]
-  }, [])
-
-  // check the elements array
-  tinierElements.map(e => {
-    if (!isTinierElement(e) && !isTinierBinding(e) && !isString(e)) {
-      throw new Error('All arguments except the first must be TinierDOM ' +
-                      'elements, TinierDOM bindings, or strings.')
-    }
-  })
+  const tinierElements = tinierElementsAr
+          // flatten the elements array
+          .reduce((acc, el) => {
+            return isArray(el) ? [ ...acc, ...el ] : [ ...acc, el ]
+          }, [])
+          // null means ignore
+          .filter(n => n !== null)
 
   // get the children with IDs
   const childrenWithKeys = Array.from(container.children).filter(c => c.id)
@@ -278,26 +273,10 @@ export function render (container, ...tinierElementsAr) {
                         'At binding: [ ' + tinierEl.address.join(', ') + ' ].')
       }
       return addressToObj(tinierEl.address, container)
-    }
-
-    // container.childNodes is a live collection, so get the current node at
-    // this index.
-    const el = container.childNodes[i]
-    if (isString(tinierEl)) {
-      // This should be a text node.
-      if (el instanceof Text) {
-        // If already a text node, then set the text content.
-        el.textContent = tinierEl
-      } else if (el) {
-        // If not a text node, then replace it.
-        container.replaceChild(document.createTextNode(tinierEl), el)
-      } else {
-        // If no existing node, then add a new one.
-        container.appendChild(document.createTextNode(tinierEl))
-      }
-      // No binding here.
-      return null
     } else if (isTinierElement(tinierEl)) {
+      // container.childNodes is a live collection, so get the current node at
+      // this index.
+      const el = container.childNodes[i]
       // tinierEl is a TinierDOM element.
       if (tinierEl.attributes.id in elementsByID) {
         // el exist, then check for a matching node by ID
@@ -313,7 +292,8 @@ export function render (container, ...tinierElementsAr) {
         return render(movedEl, ...tinierEl.children)
       } else if (el) {
         // both defined, check type and id
-        if (el.tagName && el.tagName.toLowerCase() === tinierEl.tagName.toLowerCase()) {
+        if (el.tagName && el.tagName.toLowerCase() ===
+            tinierEl.tagName.toLowerCase()) {
           // matching tag, then update the node to match. Be aware that existing
           // nodes with IDs might get moved, so we should clone them?
           const elToUpdate = el.id ? el.cloneNode(true) : el
@@ -333,8 +313,20 @@ export function render (container, ...tinierElementsAr) {
         return render(newEl2, ...tinierEl.children)
       }
     } else {
-      // no tinierEl, then remove the el, if it exists
-      if (el) container.removeChild(el)
+      const el = container.childNodes[i]
+      const s = String(tinierEl)
+      // This should be a text node.
+      if (el instanceof Text) {
+        // If already a text node, then set the text content.
+        el.textContent = s
+      } else if (el) {
+        // If not a text node, then replace it.
+        container.replaceChild(document.createTextNode(s), el)
+      } else {
+        // If no existing node, then add a new one.
+        container.appendChild(document.createTextNode(s))
+      }
+      // No binding here.
       return null
     }
   })

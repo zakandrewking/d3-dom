@@ -139,15 +139,25 @@ describe('render', () => {
     assert.strictEqual(newEl.textContent, '')
   })
 
-  it('renders text with elements', () => {
+  it('renders text, and casts other objects to String', () => {
     render(el, <div>hey!, <span>hello</span> world</div>, ':-)')
     // run again to make sure text nodes are updated
-    render(el, <div>hiya!, <span>hello</span> world</div>)
+    render(el, <div>hiya!, <span>hello</span>{ 2 }</div>)
     const nodes = el.firstChild.childNodes
     assert.strictEqual(nodes[0].textContent, 'hiya!, ')
     assert.strictEqual(nodes[1].textContent, 'hello')
-    assert.strictEqual(nodes[2].textContent, ' world')
+    assert.strictEqual(nodes[2].textContent, '2')
     assert.strictEqual(el.childNodes.length, 1)
+  })
+
+  it('does not render null', () => {
+    render(el, <div>hey!, <span>hello</span> world</div>, ':-)')
+    // run again to make sure text nodes are updated
+    render(el, <div>hiya!, { null }<span>{ null }</span>{ 2 }</div>)
+    const nodes = el.firstChild.childNodes
+    assert.strictEqual(nodes[0].textContent, 'hiya!, ')
+    assert.strictEqual(nodes[1].textContent, '')
+    assert.strictEqual(nodes[2].textContent, '2')
   })
 
   it('renders multiple divs', () => {
