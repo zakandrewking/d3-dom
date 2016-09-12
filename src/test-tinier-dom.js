@@ -90,14 +90,14 @@ describe('updateDOMElement', () => {
     assert.strictEqual(newEl.getAttribute('class'), 'empty')
   })
 
-  it('handles boolean attributes', () => {
-    render(el, <input></input>)
+  it('handles special form attributes -- checked', () => {
+    render(el, <input type='checkbox'></input>)
     const newEl = el.firstChild
     assert.isFalse(newEl.hasAttribute('checked'))
     updateDOMElement(newEl, <input checked={ true }></input>)
-    assert.strictEqual(newEl.getAttribute('checked'), 'checked')
+    assert.isTrue(newEl.checked)
     updateDOMElement(newEl, <input checked={ false }></input>)
-    assert.isFalse(newEl.hasAttribute('checked'))
+    assert.isFalse(newEl.checked)
   })
 
   it('removes on* functions', () => {
@@ -121,6 +121,14 @@ describe('updateDOMElement', () => {
     updateDOMElement(newEl, <input onClick={ inc2 }></input>)
     mouseClick(newEl)
     assert.strictEqual(called, 1)
+  })
+
+  it('takes then attribute', () => {
+    let called = null
+    render(el, <input></input>)
+    const newEl = el.firstChild
+    updateDOMElement(newEl, <input then={ el => called = el }></input>)
+    assert.strictEqual(called, newEl)
   })
 })
 

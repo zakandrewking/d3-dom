@@ -16,6 +16,21 @@ function reverseObject (obj) {
 // some attribute renaming as seen in React
 const ATTRIBUTE_RENAME = { className: 'class', htmlFor: 'for' }
 const ATTRIBUTE_RENAME_REV = reverseObject(ATTRIBUTE_RENAME)
+const ATTRIBUTE_APPLY = {
+  checked: (el, name, val = false) => {
+    if (name !== 'input') {
+      throw new Error('"checked" attribute is only supported on input elements.')
+    }
+    el.checked = val
+  },
+  value: (el, name, val = false) => {
+    if ([ 'input', 'textarea' ].indexOf(name) === -1) {
+      throw new Error('"value" attribute is only supported on input and ' +
+                      'textarea elements.')
+    }
+    el.value = val
+  },
+}
 
 // functions
 function partial (fn, arg) {
@@ -189,6 +204,8 @@ function setAttributeCheckBool (el, name, val) {
  * @param {Object} tinierEl - A TinierDOM element.
  */
 export function updateDOMElement (el, tinierEl) {
+  let thenFn = null
+
   // remove event listeners first, because they cannot simply be replaced
   if (el.hasOwnProperty(LISTENER_OBJECT)) {
     mapValues(el[LISTENER_OBJECT], (onFn, name) => {
@@ -220,6 +237,16 @@ export function updateDOMElement (el, tinierEl) {
     } else if (k in ATTRIBUTE_RENAME) {
       // By default, set the attribute.
       setAttributeCheckBool(el, ATTRIBUTE_RENAME[k], v)
+    } else if (k in ATTRIBUTE_APPLY) {
+      ATTRIBUTE_APPLY[k](el, tinierEl.tagName, v)
+
+    } else if (k === 'then') {
+      if (v !== null) {
+        if (!isFunction(v)) {
+          throw new Error(v + ' is not a function or null.')
+        }
+        thenFn = v
+      }
     } else {
       // By default, set the attribute.
       setAttributeCheckBool(el, k, v)
@@ -236,6 +263,8 @@ export function updateDOMElement (el, tinierEl) {
     .map(k => {
       if (k in ATTRIBUTE_RENAME_REV) {
         el.removeAttribute(ATTRIBUTE_RENAME_REV[k])
+      } else if (k in ATTRIBUTE_APPLY) {
+        ATTRIBUTE_APPLY[k](el, tinierEl.tagName)
       } else {
         el.removeAttribute(k)
       }
@@ -247,6 +276,12 @@ export function updateDOMElement (el, tinierEl) {
       .filter(a => !(a in tStyle || toCamelCase(a) in tStyle))
       .map(a => el.style.removeProperty(a))
   }
+
+  // call the callback
+  if (thenFn) {
+    thenFn(el)
+  }
+
   return el
 }
 
