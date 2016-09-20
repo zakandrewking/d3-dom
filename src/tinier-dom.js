@@ -18,7 +18,7 @@ function reverseObject (obj) {
 }
 
 // some attribute renaming as seen in React
-const ATTRIBUTE_RENAME = { className: 'class', htmlFor: 'for' }
+const ATTRIBUTE_RENAME = {}
 const ATTRIBUTE_RENAME_REV = reverseObject(ATTRIBUTE_RENAME)
 const ATTRIBUTE_APPLY = {
   checked: (el, name, val = false) => {

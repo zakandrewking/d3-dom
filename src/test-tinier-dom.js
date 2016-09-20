@@ -83,10 +83,10 @@ describe('updateDOMElement', () => {
     assert.strictEqual(newEl.getAttribute('disabled'), null)
   })
 
-  it('converts className to class', () => {
+  it('converts accepts class', () => {
     render(el, <input></input>)
     const newEl = el.firstChild
-    updateDOMElement(newEl, <input className="empty"></input>)
+    updateDOMElement(newEl, <input class="empty"></input>)
     assert.strictEqual(newEl.getAttribute('class'), 'empty')
   })
 
