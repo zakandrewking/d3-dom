@@ -22,6 +22,9 @@
     "url": "https://github.com/zakandrewking/tinier-dom/issues"
   },
   "homepage": "https://github.com/zakandrewking/tinier-dom#readme",
+  "depencencies": {
+    "tinier": "^0.3.0"
+  },
   "devDependencies": {
     "babel-cli": "^6.4.5",
     "babel-core": "^6.4.0",

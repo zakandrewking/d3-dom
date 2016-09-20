@@ -1,5 +1,9 @@
 /** @module tinier-dom */
 
+import {
+  mapValues, isFunction, tagType, checkType, isArray, isString,
+} from 'tinier'
+
 // constants
 export const BINDING = '@TINIER_BINDING'
 export const ELEMENT = '@TINIER_ELEMENT'
@@ -32,20 +36,6 @@ const ATTRIBUTE_APPLY = {
   },
 }
 
-// functions
-function partial (fn, arg) {
-  return (...args) => fn(arg, ...args)
-}
-
-/**
- * Check if the object is a function.
- * @param {*} object - The object to test.
- * @return {Boolean}
- */
-export function isFunction (object) {
-  return typeof(object) === 'function'
-}
-
 /**
  * Turn an array of objects into a new object of objects where the keys are
  * given by the value of `key` in each child object.
@@ -56,14 +46,6 @@ function keyBy (arr, key) {
   var obj = {}
   arr.map(x => obj[x[key]] = x)
   return obj
-}
-
-function mapValues (obj, fn) {
-  const newObj = {}
-  for (let key in obj) {
-    newObj[key] = fn(obj[key], key)
-  }
-  return newObj
 }
 
 /**
@@ -124,18 +106,11 @@ export function objectForBindings (bindings) {
     objectForBindingsObject(bindings)
 }
 
-function tagType (obj, type) {
-  return Object.assign({}, obj, { type })
-}
-
 // TODO share a dependency with tinier
 // Make sure default is null so undefined type constant do not match
-const checkType = (type, obj) => obj && obj.type && obj.type === type
-const isTinierBinding = partial(checkType, BINDING)
-const isTinierElement = partial(checkType, ELEMENT)
+const isTinierBinding = obj => checkType(BINDING, obj)
+const isTinierElement = obj => checkType(ELEMENT, obj)
 const isElement = v => v instanceof Element
-const isArray = Array.isArray
-const isString = v => typeof v === 'string'
 
 /**
  * Create a new TinierDOM element.
@@ -150,7 +125,7 @@ const isString = v => typeof v === 'string'
  */
 export function h (tagName, attributesIn, ...children) {
   const attributes = attributesIn == null ? {} : attributesIn
-  return tagType({ tagName, attributes, children }, ELEMENT)
+  return tagType(ELEMENT, { tagName, attributes, children })
 }
 
 /**
@@ -161,7 +136,7 @@ export function h (tagName, attributesIn, ...children) {
  */
 export function bind (addressIn) {
   const address = isArray(addressIn) ? addressIn : [ addressIn ]
-  return tagType({ address }, BINDING)
+  return tagType(BINDING, { address })
 }
 
 function createDOMElement (tinierEl) {
