@@ -33,13 +33,14 @@ describe('objectForBindings', () => {
   it('arrays', () => {
     const ar3 = Array(3)
     ar3[2] = 'c'
-    assert.deepEqual(objectForBindings([ [ null, 'b', null, 'd' ], [ 'a' ], ar3 ]),
-                     [ 'a', 'b', 'c', 'd' ])
+    const res = objectForBindings([ [ null, 'b', null, 'd', 0 ], [ 'a' ], ar3 ])
+    assert.deepEqual(res, [ 'a', 'b', 'c', 'd', 0 ])
   })
 
   it('objects', () => {
-    assert.deepEqual(objectForBindings([ { a: 1 }, { b: 2, c: [ 3 ] }, { c: [ null, 4 ]} ]),
-                     { a: 1, b: 2, c: [ 3, 4 ] })
+    const res = objectForBindings([ { a: 1 }, { b: 2, c: [ 3 ] },
+                                    { c: [ null, 4 ]} ])
+    assert.deepEqual(res, { a: 1, b: 2, c: [ 3, 4 ] })
   })
 })
 
@@ -169,13 +170,18 @@ describe('render', () => {
   })
 
   it('renders multiple divs', () => {
-    render(el, <div>hello</div>, <div><span>world</span><span>!</span></div>)
-    const newEl = el.firstChild
-    const newEl2 = el.lastChild.firstChild
-    const newEl3 = el.lastChild.lastChild
-    assert.strictEqual(newEl.textContent, 'hello')
-    assert.strictEqual(newEl2.textContent, 'world')
-    assert.strictEqual(newEl3.textContent, '!')
+    const el1 = document.createElement('div')
+    el.appendChild(el1)
+    const el2 = document.createElement('div')
+    el.appendChild(el2)
+    render(el1, <div>hello</div>, <div><span>world</span><span>!</span></div>)
+    render(el2, <div>hello2</div>, <div><span>world2</span><span>!2</span></div>)
+    assert.strictEqual(el1.firstChild.textContent, 'hello')
+    assert.strictEqual(el1.lastChild.firstChild.textContent, 'world')
+    assert.strictEqual(el1.lastChild.lastChild.textContent, '!')
+    assert.strictEqual(el2.firstChild.textContent, 'hello2')
+    assert.strictEqual(el2.lastChild.firstChild.textContent, 'world2')
+    assert.strictEqual(el2.lastChild.lastChild.textContent, '!2')
   })
 
   it('renders nested elements with attributes', () => {

@@ -1,7 +1,8 @@
 /** @module tinier-dom */
 
 import {
-  mapValues, isFunction, tagType, checkType, isArray, isString,
+  mapValues, isFunction, isUndefined, tagType, checkType, isArray, isString,
+  notNull, get,
 } from 'tinier'
 
 // constants
@@ -18,6 +19,7 @@ function reverseObject (obj) {
 }
 
 // some attribute renaming as seen in React
+const SVG_TAGS = [ 'svg', 'g', 'circle' ]
 const ATTRIBUTE_RENAME = {}
 const ATTRIBUTE_RENAME_REV = reverseObject(ATTRIBUTE_RENAME)
 const ATTRIBUTE_APPLY = {
@@ -52,35 +54,47 @@ function keyBy (arr, key) {
  *
  */
 export function addressToObj (address, val) {
-  if (address.length === 0) {
+  // If address is []
+  if (isUndefined(address[0])) {
     return val
   }
   const f = address[0]
   if (isString(f)) {
     return { [f]: addressToObj(address.slice(1), val) }
   } else {
-    const ar = Array(f)
+    const ar = Array(f + 1)
     ar[f] = addressToObj(address.slice(1), val)
     return ar
   }
 }
 
 function objectForBindingsArray (bindings) {
-  return bindings.reduce((acc, binding) => {
+  // Check arrays and find longest internal array.
+  let longest = 0
+  for (let j = 0, l = bindings.length; j < l; j++) {
+    const binding = bindings[j]
     if (!isArray(binding)) {
       throw Error('Incompatible bindings: mix of types')
     }
-    for (let i = 0, l = binding.length; i < l; i++) {
-      if (binding[i]) {
-        if (acc[i]) {
+    const len = binding.length
+    if (len > longest) {
+      longest = len
+    }
+  }
+  const acc = []
+  for (let i = 0; i < longest; i++) {
+    for (let j = 0, l = bindings.length; j < l; j++) {
+      const binding = bindings[j]
+      if (binding[i] != null) { // not null or undefined
+        if (acc[i] != null) { // not null or undefined
           acc[i] = objectForBindings([ binding[i], acc[i] ])
         } else {
           acc[i] = binding[i]
         }
       }
     }
-    return acc
-  }, [])
+  }
+  return acc
 }
 
 function objectForBindingsObject (bindings) {
@@ -139,8 +153,16 @@ export function bind (addressIn) {
   return tagType(BINDING, { address })
 }
 
-function createDOMElement (tinierEl) {
-  return updateDOMElement(document.createElement(tinierEl.tagName), tinierEl)
+/**
+ *  Namespace can be 'html' or 'svg'.
+ */
+function createDOMElement (tinierEl, namespace='html') {
+  if (SVG_TAGS.indexOf(tinierEl.tagName.toLowerCase()) !== -1) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tinierEl.tagName)
+    return updateDOMElement(el, tinierEl)
+  } else {
+    return updateDOMElement(document.createElement(tinierEl.tagName), tinierEl)
+  }
 }
 
 export function getStyles (cssText) {
@@ -167,9 +189,9 @@ function stripOn (name) {
 
 function setAttributeCheckBool (el, name, val) {
   if (val === true) {
-    el.setAttribute(name, name)
+    el.setAttributeNS(null, name, name)
   } else if (val !== false) {
-    el.setAttribute(name, val)
+    el.setAttributeNS(null, name, val)
   }
 }
 
@@ -261,6 +283,21 @@ export function updateDOMElement (el, tinierEl) {
 }
 
 /**
+* flatten the elements array
+*/
+function flattenElementsAr (ar) {
+  return ar.reduce((acc, el) => {
+    return isArray(el) ? [ ...acc, ...el ] : [ ...acc, el ]
+  }, []).filter(notNull) // null means ignore
+}
+
+function removeExtraNodes (container, length) {
+  for (let i = container.childNodes.length - 1; i >= length; i--) {
+    container.removeChild(container.childNodes[i])
+  }
+}
+
+/**
  * Render the given element tree into the container.
  * @param {Element} container - A DOM element that will be the container for
  *                              the renedered element tree.
@@ -274,13 +311,16 @@ export function render (container, ...tinierElementsAr) {
     throw new Error('First argument must be a DOM Element.')
   }
 
-  const tinierElements = tinierElementsAr
-          // flatten the elements array
-          .reduce((acc, el) => {
-            return isArray(el) ? [ ...acc, ...el ] : [ ...acc, el ]
-          }, [])
-          // null means ignore
-          .filter(n => n !== null)
+  const tinierElements = flattenElementsAr(tinierElementsAr)
+
+  const first = get(tinierElements, 0)
+  if (isTinierBinding(first)) {
+    if (tinierElements.length !== 1) {
+      throw new Error('A binding cannot have siblings in TinierDOM. ' +
+                      'At binding: [ ' + first.address.join(', ') + ' ].')
+    }
+    return objectForBindings([ addressToObj(first.address, container) ])
+  }
 
   // get the children with IDs
   const childrenWithKeys = Array.from(container.children).filter(c => c.id)
@@ -289,13 +329,7 @@ export function render (container, ...tinierElementsAr) {
   // render each element
   const bindingsAr = tinierElements.map((tinierEl, i) => {
     // If an element if a binding, then there can only be one child.
-    if (isTinierBinding(tinierEl)) {
-      if (tinierElements.length !== 1) {
-        throw new Error('A binding cannot have siblings in TinierDOM. ' +
-                        'At binding: [ ' + tinierEl.address.join(', ') + ' ].')
-      }
-      return addressToObj(tinierEl.address, container)
-    } else if (isTinierElement(tinierEl)) {
+    if (isTinierElement(tinierEl)) {
       // container.childNodes is a live collection, so get the current node at
       // this index.
       const el = container.childNodes[i]
@@ -334,6 +368,10 @@ export function render (container, ...tinierElementsAr) {
         container.appendChild(newEl2)
         return render(newEl2, ...tinierEl.children)
       }
+      // There should not be any bindings here
+    } else if (isTinierBinding(tinierEl)) {
+      throw new Error('A binding cannot have siblings in TinierDOM. ' +
+                      'At binding: [ ' + tinierEl.address.join(', ') + ' ].')
     } else {
       const el = container.childNodes[i]
       const s = String(tinierEl)
@@ -354,8 +392,9 @@ export function render (container, ...tinierElementsAr) {
   })
 
   // remove extra nodes
-  Array.prototype.slice.call(container.childNodes, tinierElements.length)
-    .map(c => container.removeChild(c))
+  // TODO This should not run if the child is a binding. Make a test for
+  // this. When else should it not run?
+  removeExtraNodes(container, tinierElements.length)
 
   // bindings array to object
   return objectForBindings(bindingsAr.filter(b => b !== null))
