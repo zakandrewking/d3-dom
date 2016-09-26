@@ -9,7 +9,7 @@
   "scripts": {
     "test": "./node_modules/.bin/mocha --compilers js:babel-register src/test-tinier-dom.js || true",
     "test-debug": "./node_modules/.bin/mocha debug --compilers js:babel-register src/test-tinier-dom.js || true",
-      "compile": "./node_modules/.bin/babel -d lib/ --ignore test-* -s true src/ && ./node_modules/.bin/uglifyjs --compress --mangle --source-map lib/tinier-dom.min.js.map --in-source-map lib/tinier-dom.js.map -o lib/tinier-dom.min.js -- lib/tinier-dom.js",
+    "compile": "./node_modules/.bin/babel -d lib/ --ignore test-* -s true src/ && ./node_modules/.bin/uglifyjs --compress --mangle --source-map lib/tinier-dom.min.js.map --in-source-map lib/tinier-dom.js.map -o lib/tinier-dom.min.js -- lib/tinier-dom.js",
     "compilew": "./node_modules/.bin/babel -d lib/ --ignore test-* -w -s true src/"
   },
   "repository": {
@@ -26,13 +26,13 @@
     "tinier": "^0.3.0"
   },
   "devDependencies": {
-    "babel-cli": "^6.4.5",
-    "babel-core": "^6.4.0",
-    "babel-preset-es2015": "^6.3.13",
-    "babel-preset-react": "^6.5.0",
-    "babel-register": "^6.4.3",
+    "babel-cli": "^6.14.0",
+    "babel-core": "^6.14.0",
+    "babel-preset-es2015": "^6.14.0",
+    "babel-preset-react": "^6.11.1",
+    "babel-register": "^6.14.0",
     "chai": "^3.4.1",
-    "jsdom": "^9.4.2",
+    "jsdom": "^9.5.0",
     "mocha": "^3.0.2",
     "uglify-js": "^2.7.3"
   }
