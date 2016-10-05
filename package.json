@@ -1,6 +1,6 @@
 {
   "name": "tinier-dom",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "description": "React-style DOM declarations for Tinier",
   "main": "lib/tinier-dom.js",
   "files": [
@@ -23,7 +23,7 @@
   },
   "homepage": "https://github.com/zakandrewking/tinier-dom#readme",
   "depencencies": {
-    "tinier": "^0.3.0"
+    "tinier": "^0.4.0"
   },
   "devDependencies": {
     "babel-cli": "^6.14.0",
