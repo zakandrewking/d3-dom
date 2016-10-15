@@ -1,8 +1,8 @@
 /* global global */
 
 import {
-  h, render, bind, ELEMENT, BINDING, getStyles, updateDOMElement, addressToObj,
-  objectForBindings,
+  ELEMENT, BINDING, addressToObj, h, bind, createDOMElement, getStyles,
+  updateDOMElement, objectForBindings, render,
 } from './tinier-dom'
 
 import { describe, it, afterEach, } from 'mocha'
@@ -29,21 +29,6 @@ describe('addressToObj', () => {
   })
 })
 
-describe('objectForBindings', () => {
-  it('arrays', () => {
-    const ar3 = Array(3)
-    ar3[2] = 'c'
-    const res = objectForBindings([ [ null, 'b', null, 'd', 0 ], [ 'a' ], ar3 ])
-    assert.deepEqual(res, [ 'a', 'b', 'c', 'd', 0 ])
-  })
-
-  it('objects', () => {
-    const res = objectForBindings([ { a: 1 }, { b: 2, c: [ 3 ] },
-                                    { c: [ null, 4 ]} ])
-    assert.deepEqual(res, { a: 1, b: 2, c: [ 3, 4 ] })
-  })
-})
-
 describe('h', () => {
   it('returns an object', () => {
     assert.deepEqual(
@@ -57,6 +42,54 @@ describe('h', () => {
       h('div', null, 'a', 'b'),
       { tagName: 'div', attributes: {}, children: [ 'a', 'b' ], type: ELEMENT }
     )
+  })
+})
+
+describe('bind', () => {
+  it('accepts an address', () => {
+    assert.deepEqual(bind([ 'a', 'b' ]),
+                     { type: BINDING, address: [ 'a', 'b' ] })
+  })
+
+  it('accepts a single loc', () => {
+    assert.deepEqual(bind('a'),
+                     { type: BINDING, address: [ 'a' ] })
+  })
+})
+
+describe('createDOMElement', () => {
+  it('choose correct namespace -- html', () => {
+    const tEl = h('html', { 'href': 'http://a.com',
+                            'xlink:href': 'http://b.com', })
+    const el = createDOMElement(tEl, document.body)
+    // check element namespace
+    assert.strictEqual(el.namespaceURI, 'http://www.w3.org/1999/xhtml')
+    // check attribute namespaces
+    assert.strictEqual(el.getAttributeNS('http://www.w3.org/1999/xhtml', 'href'),
+                       'http://a.com')
+    assert.strictEqual(el.getAttributeNS('http://www.w3.org/1999/xlink', 'href'),
+                       'http://b.com')
+  })
+
+  it('choose correct namespace -- svg', () => {
+    assert.strictEqual(createDOMElement(h('svg'), document.body).namespaceURI,
+                       'http://www.w3.org/2000/svg')
+  })
+
+  it('choose correct namespace -- inherit', () => {
+    const svg = createDOMElement(h('svg'), document.body)
+    assert.strictEqual(createDOMElement(h('g'), document.body).namespaceURI,
+                       'http://www.w3.org/1999/xhtml')
+    assert.strictEqual(createDOMElement(h('g'), svg).namespaceURI,
+                       'http://www.w3.org/2000/svg')
+  })
+
+  it('choose correct namespace -- explicit', () => {
+    assert.strictEqual(createDOMElement(h('svg:g'), document.body).namespaceURI,
+                       'http://www.w3.org/2000/svg')
+    // keep xmlns prefix
+    assert.strictEqual(createDOMElement(h('xmlns:g'), document.body).namespaceURI,
+                       'http://www.w3.org/2000/xmlns/')
   })
 })
 
@@ -130,6 +163,21 @@ describe('updateDOMElement', () => {
     const newEl = el.firstChild
     updateDOMElement(newEl, <input then={ el => called = el }></input>)
     assert.strictEqual(called, newEl)
+  })
+})
+
+describe('objectForBindings', () => {
+  it('arrays', () => {
+    const ar3 = Array(3)
+    ar3[2] = 'c'
+    const res = objectForBindings([ [ null, 'b', null, 'd', 0 ], [ 'a' ], ar3 ])
+    assert.deepEqual(res, [ 'a', 'b', 'c', 'd', 0 ])
+  })
+
+  it('objects', () => {
+    const res = objectForBindings([ { a: 1 }, { b: 2, c: [ 3 ] },
+                                    { c: [ null, 4 ]} ])
+    assert.deepEqual(res, { a: 1, b: 2, c: [ 3, 4 ] })
   })
 })
 

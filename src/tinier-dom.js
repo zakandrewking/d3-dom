@@ -19,7 +19,6 @@ function reverseObject (obj) {
 }
 
 // some attribute renaming as seen in React
-const SVG_TAGS = [ 'svg', 'g', 'circle' ]
 const ATTRIBUTE_RENAME = {}
 const ATTRIBUTE_RENAME_REV = reverseObject(ATTRIBUTE_RENAME)
 const ATTRIBUTE_APPLY = {
@@ -36,6 +35,15 @@ const ATTRIBUTE_APPLY = {
     }
     el.value = val
   },
+}
+
+// namespace management inspired by of D3.js, Mike Bostock, BSD license
+const NAMESPACES = {
+  svg: 'http://www.w3.org/2000/svg',
+  xhtml: 'http://www.w3.org/1999/xhtml',
+  xlink: 'http://www.w3.org/1999/xlink',
+  xml: 'http://www.w3.org/XML/1998/namespace',
+  xmlns: 'http://www.w3.org/2000/xmlns/',
 }
 
 /**
@@ -153,16 +161,35 @@ export function bind (addressIn) {
   return tagType(BINDING, { address })
 }
 
-/**
- *  Namespace can be 'html' or 'svg'.
- */
-function createDOMElement (tinierEl, namespace='html') {
-  if (SVG_TAGS.indexOf(tinierEl.tagName.toLowerCase()) !== -1) {
-    const el = document.createElementNS('http://www.w3.org/2000/svg', tinierEl.tagName)
-    return updateDOMElement(el, tinierEl)
+function explicitNamespace (name) {
+  const i = name.indexOf(':')
+  if (i !== -1) {
+    const prefix = name.slice(0, i)
+    if (prefix in NAMESPACES) {
+      // for xmlns, treat the whole name (e.g. xmlns:xlink) as the name
+      const newName = prefix === 'xmlns' ? name : name.slice(i + 1)
+      return { name: newName, explicit: NAMESPACES[prefix] }
+    } else {
+      return { name, explicit: null }
+    }
   } else {
-    return updateDOMElement(document.createElement(tinierEl.tagName), tinierEl)
+    return { name, explicit: null }
   }
+}
+
+/**
+ * Create a DOM element, inheriting namespace or choosing one based on tag.
+ * @param {Object} tinierEl - A TinierDOM element.
+ * @param {Object} parent - The parent el.
+ * @return {Object} The DOM element.
+ */
+export function createDOMElement (tinierEl, parent) {
+  const tag = tinierEl.tagName
+  const { name, explicit } = explicitNamespace(tag)
+  const ns = (explicit !== null ? explicit :
+              (tag in NAMESPACES ? NAMESPACES[tag] : parent.namespaceURI))
+  const el = document.createElementNS(ns, name)
+  return updateDOMElement(el, tinierEl)
 }
 
 export function getStyles (cssText) {
@@ -187,11 +214,11 @@ function stripOn (name) {
   return name.slice(2).toLowerCase()
 }
 
-function setAttributeCheckBool (el, name, val) {
+function setAttributeCheckBool (namespace, el, name, val) {
   if (val === true) {
-    el.setAttributeNS(null, name, name)
+    el.setAttributeNS(namespace, name, name)
   } else if (val !== false) {
-    el.setAttributeNS(null, name, val)
+    el.setAttributeNS(namespace, name, val)
   }
 }
 
@@ -202,6 +229,7 @@ function setAttributeCheckBool (el, name, val) {
  */
 export function updateDOMElement (el, tinierEl) {
   let thenFn = null
+  const parentNamespace = el.namespaceURI
 
   // remove event listeners first, because they cannot simply be replaced
   if (el.hasOwnProperty(LISTENER_OBJECT)) {
@@ -233,7 +261,9 @@ export function updateDOMElement (el, tinierEl) {
       el.addEventListener(name, v)
     } else if (k in ATTRIBUTE_RENAME) {
       // By default, set the attribute.
-      setAttributeCheckBool(el, ATTRIBUTE_RENAME[k], v)
+      const { name, explicit } = explicitNamespace(k)
+      setAttributeCheckBool(explicit !== null ? explicit : parentNamespace,
+                            el, ATTRIBUTE_RENAME[explicit], v)
     } else if (k in ATTRIBUTE_APPLY) {
       ATTRIBUTE_APPLY[k](el, tinierEl.tagName, v)
 
@@ -246,7 +276,9 @@ export function updateDOMElement (el, tinierEl) {
       }
     } else {
       // By default, set the attribute.
-      setAttributeCheckBool(el, k, v)
+      const { name, explicit } = explicitNamespace(k)
+      setAttributeCheckBool(explicit !== null ? explicit : parentNamespace,
+                            el, name, v)
     }
   })
   // Delete attributes if not provided. First, loop through this attributes
@@ -358,13 +390,13 @@ export function render (container, ...tinierElementsAr) {
           return render(elToUpdate, ...tinierEl.children)
         } else {
           // not a matching tag, then replace the element with a new one
-          const newEl = createDOMElement(tinierEl)
+          const newEl = createDOMElement(tinierEl, container)
           container.replaceChild(newEl, el)
           return render(newEl, ...tinierEl.children)
         }
       } else {
         // no el and no ID match, then add a new Element or string node
-        const newEl2 = createDOMElement(tinierEl)
+        const newEl2 = createDOMElement(tinierEl, container)
         container.appendChild(newEl2)
         return render(newEl2, ...tinierEl.children)
       }
