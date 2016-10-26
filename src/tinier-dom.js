@@ -252,13 +252,18 @@ export function updateDOMElement (el, tinierEl) {
       })
     } else if (k.indexOf('on') === 0) {
       // Special handling for listeners
-      if (!el.hasOwnProperty(LISTENER_OBJECT)) el[LISTENER_OBJECT] = {}
-      const name = stripOn(k)
-      if (!isFunction(v)) {
-        throw new Error(v + ' is not a function.')
+      if (!el.hasOwnProperty(LISTENER_OBJECT)) {
+        el[LISTENER_OBJECT] = {}
       }
-      el[LISTENER_OBJECT][name] = v
-      el.addEventListener(name, v)
+      // allow null
+      if (v !== null) {
+        const name = stripOn(k)
+        if (!isFunction(v) && v !== null) {
+          throw new Error(v + ' is not a function.')
+        }
+        el[LISTENER_OBJECT][name] = v
+        el.addEventListener(name, v)
+      }
     } else if (k in ATTRIBUTE_RENAME) {
       // By default, set the attribute.
       const { name, explicit } = explicitNamespace(k)
@@ -361,7 +366,10 @@ export function render (container, ...tinierElementsAr) {
   // render each element
   const bindingsAr = tinierElements.map((tinierEl, i) => {
     // If an element if a binding, then there can only be one child.
-    if (isTinierElement(tinierEl)) {
+    if (isUndefined(tinierEl)) {
+      // cannot be undefined
+      throw new Error('Children in Tinier Elements cannot be undefined.')
+    } else if (isTinierElement(tinierEl)) {
       // container.childNodes is a live collection, so get the current node at
       // this index.
       const el = container.childNodes[i]
